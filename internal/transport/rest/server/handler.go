@@ -56,7 +56,6 @@ func DisplayAllMetrics(svc service.StorageService) http.HandlerFunc {
 			Name string
 			Link string
 		}{}}
-
 		for _, m := range metrics {
 			data.Metrics = append(data.Metrics, struct {
 				Name string
@@ -108,6 +107,9 @@ func DisplayMetric(svc service.StorageService) http.HandlerFunc {
 
 func cleanUselessData(ctx context.Context) []string {
 	r := make([]string, 0)
+
+	v := ctx.Value("type")
+	_ = v
 
 	r = appendIfIsFilled(r, chi.URLParamFromCtx(ctx, "type"))
 	r = appendIfIsFilled(r, chi.URLParamFromCtx(ctx, "name"))

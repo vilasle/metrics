@@ -9,6 +9,7 @@ import (
 	"github.com/vilasle/metrics/internal/service/server"
 )
 
+//FIXME if use chi router with url params when test will not work, because chi keep params on request context
 func TestUpdateMetric(t *testing.T) {
 	svc := server.NewStorageService(
 		memory.NewMetricGaugeMemoryRepository(),
@@ -191,6 +192,7 @@ func TestUpdateMetric(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, p := range tt.path {
 				req, err := http.NewRequest(tt.method, p, nil)
+
 				if err != nil {
 					t.Fatal(err)
 				}
