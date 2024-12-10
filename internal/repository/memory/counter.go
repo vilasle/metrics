@@ -7,14 +7,14 @@ import (
 )
 
 type MetricCounterMemoryRepository[T model.Counter] struct {
-	mx *sync.RWMutex
+	mx      *sync.RWMutex
 	metrics map[string][]model.Counter
 }
 
 func NewMetricCounterMemoryRepository() *MetricCounterMemoryRepository[model.Counter] {
 	return &MetricCounterMemoryRepository[model.Counter]{
 		metrics: make(map[string][]model.Counter),
-		mx: &sync.RWMutex{},
+		mx:      &sync.RWMutex{},
 	}
 }
 
@@ -42,18 +42,10 @@ func (m *MetricCounterMemoryRepository[T]) Get(name string) (model.Counter, erro
 func (m *MetricCounterMemoryRepository[T]) All() (map[string]model.Counter, error) {
 	m.mx.RLock()
 	defer m.mx.RUnlock()
-	
+
 	result := make(map[string]model.Counter)
 	for k, v := range m.metrics {
-		result[k] = sum(v)
+		result[k] = v[len(v)-1]
 	}
 	return result, nil
-}
-
-func sum(num []model.Counter) model.Counter {
-	s := model.Counter(0)
-	for _, num := range num {
-		s += num
-	}
-	return s
 }

@@ -50,8 +50,8 @@ func main() {
 	server := rest.NewHTTPServer(conf.address)
 
 	server.Register("/", methods(), contentTypes(), rest.DisplayAllMetrics(svc))
-	server.Register("/value/", methods(http.MethodGet), contentTypes(), rest.DisplayMetric(svc))
-	server.Register("/update/", methods(http.MethodPost), contentTypes(), rest.UpdateMetric(svc))
+	server.Register("/value/{type}/{name}", methods(http.MethodGet), contentTypes(), rest.DisplayMetric(svc))
+	server.Register("/update/{type}/{name}/{value}", methods(http.MethodPost), contentTypes(), rest.UpdateMetric(svc))
 
 	stop := make(chan os.Signal, 1)
 	defer close(stop)

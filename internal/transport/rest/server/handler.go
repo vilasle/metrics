@@ -1,12 +1,13 @@
 package rest
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
-	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service"
 )
@@ -20,7 +21,7 @@ type viewData struct {
 
 func UpdateMetric(svc service.StorageService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		d := cleanUselessData(strings.Split(r.URL.Path, "/"))
+		d := cleanUselessData(r.Context())
 
 		err := svc.Save(
 			metric.NewRawMetric(getName(d), getKind(d), getValue(d)),
@@ -44,7 +45,7 @@ func DisplayAllMetrics(svc service.StorageService) http.HandlerFunc {
 			http.Error(w, "", http.StatusMethodNotAllowed)
 			return
 		}
-		
+
 		metrics, err := svc.AllMetrics()
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
@@ -80,7 +81,7 @@ func DisplayAllMetrics(svc service.StorageService) http.HandlerFunc {
 
 func DisplayMetric(svc service.StorageService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		d := cleanUselessData(strings.Split(r.URL.Path, "/"))
+		d := cleanUselessData(r.Context())
 
 		k, n := getKind(d), getName(d)
 
@@ -105,15 +106,21 @@ func DisplayMetric(svc service.StorageService) http.HandlerFunc {
 	})
 }
 
-func cleanUselessData(data []string) []string {
-	startInx := 0
-	for startInx = range data {
-		if data[startInx] == "" || data[startInx] == "update" || data[startInx] == "value" {
-			continue
-		}
-		return data[startInx:]
+func cleanUselessData(ctx context.Context) []string {
+	r := make([]string, 0)
+
+	r = appendIfIsFilled(r, chi.URLParamFromCtx(ctx, "type"))
+	r = appendIfIsFilled(r, chi.URLParamFromCtx(ctx, "name"))
+	r = appendIfIsFilled(r, chi.URLParamFromCtx(ctx, "value"))
+
+	return r
+}
+
+func appendIfIsFilled(r []string, v string) []string {
+	if v != "" {
+		r = append(r, v)
 	}
-	return []string{}
+	return r
 }
 
 func getKind(data []string) string {
