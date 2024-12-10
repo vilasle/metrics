@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"time"
 
 	"github.com/vilasle/metrics/internal/metric"
@@ -26,9 +25,9 @@ func NewHTTPSender(addr string) (HTTPSender, error) {
 
 func (s HTTPSender) Send(value metric.Metric) error {
 	u := *s.URL
-	u.Path = filepath.Join(s.Path, value.Type(), value.Name(), value.Value())
+	addr := u.JoinPath(value.Type(), value.Name(), value.Value()).String()
 
-	req, err := http.NewRequest(http.MethodPost, u.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, addr, nil)
 	if err != nil {
 		return err
 	}
