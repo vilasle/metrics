@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -11,6 +12,7 @@ import (
 
 type HTTPServer struct {
 	srv     *http.Server
+	stateMx *sync.RWMutex
 	mux     *chi.Mux
 	running bool
 }
@@ -27,11 +29,12 @@ func NewHTTPServer(addr string) HTTPServer {
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  60 * time.Second,
 		},
-		mux: mux,
+		mux:     mux,
+		stateMx: &sync.RWMutex{},
 	}
 }
 
-func (s HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.HandlerFunc) {
+func (s *HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.HandlerFunc) {
 	s.mux.Route(path, func(r chi.Router) {
 		if len(methods) > 0 {
 			r.Use(allowedMethods(methods...))
@@ -47,9 +50,15 @@ func (s HTTPServer) Register(path string, methods []string, contentTypes []strin
 
 func (s *HTTPServer) Start() error {
 	s.srv.Handler = s.mux
+
+	s.stateMx.Lock()
 	s.running = true
+	s.stateMx.Unlock()
+
 	defer func() {
+		s.stateMx.Lock()
 		s.running = false
+		s.stateMx.Unlock()
 	}()
 
 	err := s.srv.ListenAndServe()
@@ -61,18 +70,23 @@ func (s *HTTPServer) Start() error {
 	return err
 }
 
-func (s HTTPServer) IsRunning() bool {
+func (s *HTTPServer) IsRunning() bool {
+	s.stateMx.Lock()
+	defer s.stateMx.Unlock()
 	return s.running
 }
 
 func (s *HTTPServer) Stop() error {
 	if err := s.srv.Shutdown(context.Background()); err != nil {
+		s.stateMx.Lock()
 		s.running = false
+		s.stateMx.Unlock()
+
 		return err
 	}
 	return nil
 }
 
-func (s HTTPServer) ForceStop() error {
+func (s *HTTPServer) ForceStop() error {
 	return s.srv.Close()
 }
