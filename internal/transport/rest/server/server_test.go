@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -138,6 +139,7 @@ func TestHttpServer_IsRunning(t *testing.T) {
 				srv:     tt.fields.srv,
 				mux:     tt.fields.mux,
 				running: tt.fields.running,
+				stateMx: &sync.RWMutex{},
 			}
 			if got := s.IsRunning(); got != tt.want {
 				t.Errorf("HttpServer.IsRunning() = %v, want %v", got, tt.want)
