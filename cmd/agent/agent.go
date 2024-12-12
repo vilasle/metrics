@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -29,12 +30,26 @@ func (a collectorAgent) Collect() {
 }
 
 func (a collectorAgent) Report() {
+	if err := a.report(); err != nil {
+		fmt.Printf("failed to report metrics: %v\n", err)
+	} else {
+		a.resetPoolCounter()
+	}
+}
+
+func (a collectorAgent) report() error {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 
+	errs := make([]error, 0)
 	for _, metric := range a.Collector.AllMetrics() {
 		if err := a.Sender.Send(metric); err != nil {
-			fmt.Printf("can not send metric report by reason %v", err)
+			errs = append(errs, err)
 		}
 	}
+	return errors.Join(errs...)
+}
+
+func (a collectorAgent) resetPoolCounter() {
+	a.Collector.ResetCounter("PollCount")
 }

@@ -117,3 +117,8 @@ func (c *RuntimeCollector) GetGaugeValue(name string) metric.GaugeMetric {
 func (c *RuntimeCollector) SetGaugeValue(gauge metric.GaugeMetric) {
 	c.gauges[gauge.Name()] = gauge
 }
+
+func (c *RuntimeCollector) ResetCounter(counterName string) error {
+	c.SetCounterValue(metric.NewCounterMetric(counterName, 0))
+	return nil
+}

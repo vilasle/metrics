@@ -15,6 +15,7 @@ type StorageService interface {
 type Collector interface {
 	Collect()
 	AllMetrics() []metric.Metric
+	ResetCounter(string) error
 }
 
 type Sender interface {
