@@ -75,9 +75,9 @@ func main() {
 	reportInterval := conf.report
 
 	c.RegisterEvent(func(c *collector.RuntimeCollector) {
-		counter := c.GetCounterValue("PullCount")
+		counter := c.GetCounterValue("PollCount")
 		counter.Increment()
-
+		
 		c.SetCounterValue(counter)
 	})
 
