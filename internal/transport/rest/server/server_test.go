@@ -48,7 +48,7 @@ func TestHttpServer_StartStop(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewHTTPServer(":8080")
-			s.Register("/test", []string{}, []string{}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){}))
+			s.Register("/test", []string{}, []string{}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 
 			go func() {
 				if err := s.Start(); (err != nil) != tt.wantErr {
@@ -113,6 +113,7 @@ func TestHttpServer_IsRunning(t *testing.T) {
 		mux     *chi.Mux
 		running bool
 	}
+
 	tests := []struct {
 		name   string
 		fields fields
