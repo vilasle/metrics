@@ -17,10 +17,13 @@ type HTTPServer struct {
 	running bool
 }
 
-func NewHTTPServer(addr string) HTTPServer {
+func NewHTTPServer(addr string, middlewares ...func(http.Handler) http.Handler) HTTPServer {
 	mux := chi.NewRouter()
 	mux.Use(middleware.Recoverer)
-	mux.Use(middleware.Logger)
+
+	for _, m := range middlewares {
+		mux.Use(m)
+	}
 
 	return HTTPServer{
 		srv: &http.Server{

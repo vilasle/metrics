@@ -3,6 +3,10 @@ package rest
 import (
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 )
 
 func allowedMethods(method ...string) func(h http.Handler) http.Handler {
@@ -52,6 +56,27 @@ func allowedContentType(contentTypes ...string) func(h http.Handler) http.Handle
 			}
 
 			w.WriteHeader(http.StatusUnsupportedMediaType)
+		}
+		return http.HandlerFunc(fn)
+	}
+}
+
+func WithLogger(logger *zap.SugaredLogger) func(h http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			defer func() {
+				logger.Infow(
+					"handle request",
+					zap.String("uri", r.RequestURI),
+					zap.String("method", r.Method),
+					zap.Int("code", ww.Status()),
+					zap.Duration("delay", time.Since(start)),
+					zap.Int("size", ww.BytesWritten()),
+				)
+			}()
+			next.ServeHTTP(ww, r)
 		}
 		return http.HandlerFunc(fn)
 	}

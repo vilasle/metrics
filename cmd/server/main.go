@@ -9,6 +9,8 @@ import (
 	"time"
 
 	service "github.com/vilasle/metrics/internal/service/server"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
@@ -47,7 +49,15 @@ func main() {
 
 	svc := service.NewStorageService(gaugeStorage, counterStorage)
 
-	server := rest.NewHTTPServer(conf.address)
+	logger := initLogger()
+	defer logger.Sync()
+
+	sugar := logger.Sugar()
+
+	server := rest.NewHTTPServer(
+		conf.address,
+		rest.WithLogger(sugar),
+	)
 
 	server.Register("/", methods(), contentTypes(), rest.DisplayAllMetrics(svc))
 	server.Register("/value/{type}/{name}", methods(http.MethodGet), contentTypes(), rest.DisplayMetric(svc))
@@ -97,6 +107,14 @@ func main() {
 		}
 	}
 
+}
+
+func initLogger() *zap.Logger {
+	encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+	core := zapcore.NewCore(encoder, os.Stdout, zap.InfoLevel)
+
+	logger := zap.New(core, zap.WithCaller(false), zap.AddStacktrace(zap.ErrorLevel))
+	return logger
 }
 func contentTypes(contentType ...string) []string {
 	return contentType
