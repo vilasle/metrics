@@ -44,34 +44,21 @@ func main() {
 
 	conf := getConfig()
 
-	gaugeStorage := memory.NewMetricGaugeMemoryRepository()
-	counterStorage := memory.NewMetricCounterMemoryRepository()
-
-	svc := service.NewStorageService(gaugeStorage, counterStorage)
-
-	logger := initLogger()
+	logger := createLogger()
 	defer logger.Sync()
 
 	sugar := logger.Sugar()
 
-	server := rest.NewHTTPServer(
-		conf.address,
-		rest.WithLogger(sugar),
-	)
+	server := createAndPreparingServer(conf.address, sugar)
 
-	server.Register("/", methods(), contentTypes(), rest.DisplayAllMetrics(svc))
-	server.Register("/value/{type}/{name}", methods(http.MethodGet), contentTypes(), rest.DisplayMetric(svc))
-	server.Register("/update/{type}/{name}/{value}", methods(http.MethodPost), contentTypes(), rest.UpdateMetric(svc))
-
-	stop := make(chan os.Signal, 1)
+	stop := subscribeToStopSignals()
 	defer close(stop)
 
-	signal.Notify(stop, os.Interrupt)
+	sugar.Infow("run server", "config", conf)
 
-	fmt.Printf("run server on %s\n", conf)
 	go func() {
 		if err := server.Start(); err != nil {
-			fmt.Printf("server starting got error, %v", err)
+			sugar.Errorw("server starting got error", "error", err)
 		}
 		stop <- os.Interrupt
 	}()
@@ -79,47 +66,79 @@ func main() {
 	<-stop
 
 	if !server.IsRunning() {
-		os.Exit(0)
+		sugar.Error("server stopped unexpected")
+		os.Exit(1)
 	}
+
+	shutdown(server)
+}
+
+func shutdown(srv *rest.HTTPServer) {
+	tickForce := time.NewTicker(time.Second * 5)
+	tickKill := time.NewTicker(time.Second * 10)
 
 	stopErr := make(chan error)
 	defer close(stopErr)
 
-	tickForce := time.NewTicker(time.Second * 5)
-	tickKill := time.NewTicker(time.Second * 10)
-
-	go func() { stopErr <- server.Stop() }()
+	go func() { stopErr <- srv.Stop() }()
 
 	for {
 		select {
 		case err := <-stopErr:
 			if err != nil {
 				fmt.Println("server stopped with error", err)
-				server.ForceStop()
+				srv.ForceStop()
 			} else {
 				os.Exit(0)
 			}
 		case <-tickForce.C:
-			go server.ForceStop()
+			go srv.ForceStop()
 		case <-tickKill.C:
 			fmt.Println("server did not stop during expected time")
 			os.Exit(1)
 		}
 	}
-
 }
 
-func initLogger() *zap.Logger {
+func subscribeToStopSignals() chan os.Signal {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	return stop
+}
+
+func createRepositoryService() *service.StorageService {
+	gaugeStorage, counterStorage :=
+		memory.NewMetricGaugeMemoryRepository(),
+		memory.NewMetricCounterMemoryRepository()
+
+	svc := service.NewStorageService(gaugeStorage, counterStorage)
+	return svc
+}
+
+func createLogger() *zap.Logger {
 	encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
 	core := zapcore.NewCore(encoder, os.Stdout, zap.InfoLevel)
 
 	logger := zap.New(core, zap.WithCaller(false), zap.AddStacktrace(zap.ErrorLevel))
 	return logger
 }
-func contentTypes(contentType ...string) []string {
-	return contentType
+
+func createAndPreparingServer(addr string, logger *zap.SugaredLogger) *rest.HTTPServer {
+	server := rest.NewHTTPServer(addr, rest.WithLogger(logger))
+
+	svc := createRepositoryService()
+
+	registerHandlers(server, svc)
+
+	return server
 }
 
-func methods(method ...string) []string {
-	return method
+func registerHandlers(srv *rest.HTTPServer, svc *service.StorageService) {
+	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
+	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
+	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+}
+
+func toSlice(it ...string) []string {
+	return it
 }

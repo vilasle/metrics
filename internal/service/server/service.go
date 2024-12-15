@@ -87,6 +87,7 @@ func (s StorageService) getAllByKind(kind string) (map[string]metric.Metric, err
 	} else {
 		return map[string]metric.Metric{}, service.ErrUnknownKind
 	}
+	
 	return result, nil
 }
 

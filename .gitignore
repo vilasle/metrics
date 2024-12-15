@@ -25,3 +25,5 @@ vendor/
 .vscode
 
 cover.html
+cmd/gob/
+cmd/xml/

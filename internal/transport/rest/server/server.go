@@ -17,15 +17,15 @@ type HTTPServer struct {
 	running bool
 }
 
-func NewHTTPServer(addr string, middlewares ...func(http.Handler) http.Handler) HTTPServer {
+func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTTPServer {
 	mux := chi.NewRouter()
 	mux.Use(middleware.Recoverer)
 
-	for _, m := range middlewares {
+	for _, m := range options {
 		mux.Use(m)
 	}
 
-	return HTTPServer{
+	return &HTTPServer{
 		srv: &http.Server{
 			Addr:         addr,
 			ReadTimeout:  10 * time.Second,
