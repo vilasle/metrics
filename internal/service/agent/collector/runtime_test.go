@@ -137,9 +137,9 @@ func TestRuntimeCollector_AllMetrics(t *testing.T) {
 			c.RegisterEvent(tt.eventCollector)
 
 			c.Collect()
-			
+
 			c.execEvents()
-			
+
 			got := c.AllMetrics()
 			assert.Len(t, got, tt.wantCount+1)
 		})
@@ -147,83 +147,113 @@ func TestRuntimeCollector_AllMetrics(t *testing.T) {
 }
 
 func TestRuntimeCollector_GetCounterValue(t *testing.T) {
-	// tests := []struct {
-	// 	name   string
-	// 	metrics []string
-	// }{
-	// 	//TODO make up how test function without error
-	// 	{
-	// 		name: "check metrics which will be collected",
-	// 		metrics: []string{"Alloc", "Frees"},
-	// 	},
-
-	// }
-	// for _, tt := range tests {
-	// 	t.Run(tt.name, func(t *testing.T) {
-	// 		c :=NewRuntimeCollector()
-
-	// 		c.RegisterMetric(tt.metrics...)
-	// 		c.Co
-
-	// 		if got := c.GetCounterValue(tt.args.name); !reflect.DeepEqual(got, tt.want) {
-	// 			t.Errorf("RuntimeCollector.GetCounterValue() = %v, want %v", got, tt.want)
-	// 		}
-	// 	})
-	// }
-}
-
-func TestRuntimeCollector_SetCounterValue(t *testing.T) {
-	type fields struct {
-		counters map[string]metric.CounterMetric
-		gauges   map[string]metric.GaugeMetric
-		metrics  []string
-		events   []eventHandler
-	}
-	type args struct {
-		counter metric.CounterMetric
-	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
+		name      string
+		metrics   map[string]metric.CounterMetric
+		wantKey   string
+		wantValue metric.CounterMetric
 	}{
-		// TODO: Add test cases.
+		//TODO make up how test function without error
+		{
+			name: "check metrics which will be collected",
+			metrics: map[string]metric.CounterMetric{
+				"test1": metric.NewCounterMetric("test1", 15),
+				"test2": metric.NewCounterMetric("test2", 30),
+				"test3": metric.NewCounterMetric("test3", 45),
+				"test4": metric.NewCounterMetric("test4", 55),
+				"test5": metric.NewCounterMetric("test5", 65),
+			},
+			wantKey:   "test3",
+			wantValue: metric.NewCounterMetric("test3", 45),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &RuntimeCollector{
-				counters: tt.fields.counters,
-				gauges:   tt.fields.gauges,
-				metrics:  tt.fields.metrics,
-				events:   tt.fields.events,
+			c := RuntimeCollector{
+				counters: tt.metrics,
 			}
-			c.SetCounterValue(tt.args.counter)
+			got := c.GetCounterValue(tt.wantKey)
+			assert.Equal(t, tt.wantValue, got)
 		})
 	}
 }
 
-func TestRuntimeCollector_execEvents(t *testing.T) {
-	type fields struct {
-		counters map[string]metric.CounterMetric
-		gauges   map[string]metric.GaugeMetric
-		metrics  []string
-		events   []eventHandler
-	}
+func TestRuntimeCollector_SetGetGaugeValue(t *testing.T) {
 	tests := []struct {
-		name   string
-		fields fields
+		name string
+		storage map[string]metric.GaugeMetric
+		update metric.GaugeMetric
 	}{
-		// TODO: Add test cases.
+		{
+			name: "check metrics which will be collected",
+			storage: map[string]metric.GaugeMetric{
+				"test1": metric.NewGaugeMetric("test1", 15),
+				"test2": metric.NewGaugeMetric("test2", 55),
+				"test3": metric.NewGaugeMetric("test3", 45),
+				"test4": metric.NewGaugeMetric("test4", 65),
+				"test5": metric.NewGaugeMetric("test5", 3135),
+				"test6": metric.NewGaugeMetric("test6", 3455),
+			},
+			update: metric.NewGaugeMetric("test1", 105.673),
+		},
+		{
+			name: "set metric which does not exists yet",
+			storage: map[string]metric.GaugeMetric{
+				"test1": metric.NewGaugeMetric("test1", 15),
+				"test2": metric.NewGaugeMetric("test2", 55),
+				"test3": metric.NewGaugeMetric("test3", 45),
+				"test4": metric.NewGaugeMetric("test4", 65),
+				"test5": metric.NewGaugeMetric("test5", 3135),
+				"test6": metric.NewGaugeMetric("test6", 3455),
+			},
+			update: metric.NewGaugeMetric("test1564", 105.673),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &RuntimeCollector{
-				counters: tt.fields.counters,
-				gauges:   tt.fields.gauges,
-				metrics:  tt.fields.metrics,
-				events:   tt.fields.events,
+				gauges: tt.storage,
 			}
-			c.execEvents()
+			c.GetGaugeValue(tt.update.Name())
+			
+			c.SetGaugeValue(tt.update)
+			
+			d := c.GetGaugeValue(tt.update.Name())
+			
+			assert.Equal(t, tt.update, d)
+		})
+	}
+}
+
+func TestRuntimeCollector_ResetGetCounterValue(t *testing.T) {
+	tests := []struct {
+		name      string
+		metrics   map[string]metric.CounterMetric
+		wantKey   string
+		wantValue metric.CounterMetric
+	}{
+		{
+			name: "check metrics which will be collected",
+			metrics: map[string]metric.CounterMetric{
+				"test1": metric.NewCounterMetric("test1", 15),
+				"test2": metric.NewCounterMetric("test2", 30),
+				"test3": metric.NewCounterMetric("test3", 45),
+				"test4": metric.NewCounterMetric("test4", 55),
+				"test5": metric.NewCounterMetric("test5", 65),
+			},
+			wantKey:   "test3",
+			wantValue: metric.NewCounterMetric("test3", 0),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := RuntimeCollector{
+				counters: tt.metrics,
+			}
+			//does not return error
+			_ = c.ResetCounter(tt.wantKey)
+			got := c.GetCounterValue(tt.wantKey)
+			assert.Equal(t, tt.wantValue, got)
 		})
 	}
 }
