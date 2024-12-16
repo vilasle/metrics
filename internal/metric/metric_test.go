@@ -187,6 +187,46 @@ func TestGaugeMetric_Value(t *testing.T) {
 	}
 }
 
+func TestGaugeMetric_SetValue(t *testing.T) {
+	type fields struct {
+		name  string
+		value model.Gauge
+	}
+	type args struct {
+		v float64
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+		{
+			name: "gauge value 65",
+			fields: fields{
+				name:  "test",
+				value: 65,
+			},
+			args: args{
+				v: 100,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &GaugeMetric{
+				name:  tt.fields.name,
+				value: tt.fields.value,
+			}
+			m.SetValue(tt.args.v)
+
+			if tt.args.v != float64(m.value) {
+				t.Errorf("GaugeMetric.SetValue() = %v, want %v", m.value, tt.args.v)
+			}
+
+		})
+	}
+}
+
 func TestCounterMetric_Name(t *testing.T) {
 	type fields struct {
 		name  string
