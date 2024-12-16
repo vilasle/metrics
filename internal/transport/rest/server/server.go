@@ -14,6 +14,7 @@ type HTTPServer struct {
 	srv     *http.Server
 	stateMx *sync.RWMutex
 	mux     *chi.Mux
+	//FIXME use atomic
 	running bool
 }
 
@@ -46,19 +47,19 @@ func (s *HTTPServer) Register(path string, methods []string, contentTypes []stri
 		if len(contentTypes) > 0 {
 			r.Use(allowedContentType(contentTypes...))
 		}
-
 		r.HandleFunc("/*", handler)
 	})
 }
 
 func (s *HTTPServer) Start() error {
 	s.srv.Handler = s.mux
-
+	//FIXME
 	s.stateMx.Lock()
 	s.running = true
 	s.stateMx.Unlock()
 
 	defer func() {
+		//FIXME
 		s.stateMx.Lock()
 		s.running = false
 		s.stateMx.Unlock()
@@ -74,6 +75,7 @@ func (s *HTTPServer) Start() error {
 }
 
 func (s *HTTPServer) IsRunning() bool {
+	//FIXME
 	s.stateMx.Lock()
 	defer s.stateMx.Unlock()
 	return s.running
@@ -81,6 +83,7 @@ func (s *HTTPServer) IsRunning() bool {
 
 func (s *HTTPServer) Stop() error {
 	if err := s.srv.Shutdown(context.Background()); err != nil {
+		//FIXME
 		s.stateMx.Lock()
 		s.running = false
 		s.stateMx.Unlock()

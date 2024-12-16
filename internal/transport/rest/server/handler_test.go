@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/assert"
 	"github.com/vilasle/metrics/internal/repository/memory"
 	"github.com/vilasle/metrics/internal/service/server"
 )
 
-// FIXME if use chi router with url params when test will not work, because chi keep params on request context
-func TestUpdateMetricAsTextPlain(t *testing.T) {
+func TestUpdateMetricAsPlainText(t *testing.T) {
 	svc := server.NewStorageService(
 		memory.NewMetricGaugeMemoryRepository(),
 		memory.NewMetricCounterMemoryRepository(),
@@ -205,6 +205,141 @@ func TestUpdateMetricAsTextPlain(t *testing.T) {
 					t.Errorf("handler returned wrong status code: got %v want %v",
 						status, tt.statusCode)
 				}
+			}
+		})
+	}
+}
+
+func TestDisplayAllMetricsAsHtml(t *testing.T) {}
+
+func TestDisplayMetricAsPlainText(t *testing.T) {
+
+	gaugeStorage := memory.NewMetricGaugeMemoryRepository()
+	counterStorage := memory.NewMetricCounterMemoryRepository()
+
+	gaugeStorage.Save("gauge1", 1.05)
+	gaugeStorage.Save("gauge2", 1.15)
+
+	counterStorage.Save("counter1", 2)
+	counterStorage.Save("counter2", 3)
+
+	svc := server.NewStorageService(
+		gaugeStorage,
+		counterStorage,
+	)
+
+	testCases := []struct {
+		name        string
+		method      string
+		path        map[string]string
+		contentType []string
+		statusCode  int
+		want        string
+	}{
+		{
+			name:   "get gauge1, expect 1.05",
+			method: http.MethodGet,
+			path: map[string]string{
+				"type": "gauge", "name": "gauge1",
+			},
+			contentType: []string{
+				"text/plain",
+			},
+			statusCode: http.StatusOK,
+			want:       "1.05",
+		},
+		{
+			name:   "get gauge2, expect 1.15",
+			method: http.MethodGet,
+			path: map[string]string{
+				"type": "gauge", "name": "gauge2",
+			},
+			contentType: []string{
+				"text/plain",
+			},
+			statusCode: http.StatusOK,
+			want:       "1.15",
+		},
+		{
+			name:   "get counter1, expect 2",
+			method: http.MethodGet,
+			path: map[string]string{
+				"type": "counter", "name": "counter1",
+			},
+			contentType: []string{
+				"text/plain",
+			},
+			statusCode: http.StatusOK,
+			want:       "2",
+		},
+		{
+			name:   "get counter2, expect 3",
+			method: http.MethodGet,
+			path: map[string]string{
+				"type": "counter", "name": "counter2",
+			},
+			contentType: []string{
+				"text/plain",
+			},
+			statusCode: http.StatusOK,
+			want:       "3",
+		},
+		{
+			name:   "get counter, empty name, expect NotFound",
+			method: http.MethodGet,
+			path: map[string]string{
+				"type": "counter",
+			},
+			contentType: []string{
+				"text/plain",
+			},
+			statusCode: http.StatusNotFound,
+			want:       "",
+		},
+		{
+			name:   "get counter, empty type, expect NotFound",
+			method: http.MethodGet,
+			path:   map[string]string{},
+			contentType: []string{
+				"text/plain",
+			},
+			statusCode: http.StatusNotFound,
+			want:       "",
+		},
+		{
+			name:   "get not existed counter, expect NotFound",
+			method: http.MethodGet,
+			path: map[string]string{
+				"type": "counter", "name": "counter3",
+			},
+			contentType: []string{
+				"text/plain",
+			},
+			statusCode: http.StatusNotFound,
+			want:       "",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := chi.NewRouteContext()
+
+			for k, v := range tt.path {
+				ctx.URLParams.Add(k, v)
+			}
+			req, err := http.NewRequest(tt.method, "/value/{type}/{name}", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
+
+			rr := httptest.NewRecorder()
+			handler := DisplayMetric(svc)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.statusCode, rr.Code)
+			if tt.want != "" {
+				assert.Equal(t, tt.want, rr.Body.String())
 			}
 		})
 	}

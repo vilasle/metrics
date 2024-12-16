@@ -19,12 +19,17 @@ type viewData struct {
 	}
 }
 
+type RawData struct {
+	Name  string
+	Kind  string
+	Value string
+}
+
 func UpdateMetric(svc service.StorageService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		d := cleanUselessData(r.Context())
-
+		raw := getRawDataFromContext(r.Context())
 		err := svc.Save(
-			metric.NewRawMetric(getName(d), getKind(d), getValue(d)),
+			metric.NewRawMetric(raw.Name, raw.Kind, raw.Value),
 		)
 
 		w.Header().Add("Content-Type", "text/plain")
@@ -80,16 +85,14 @@ func DisplayAllMetrics(svc service.StorageService) http.HandlerFunc {
 
 func DisplayMetric(svc service.StorageService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		d := cleanUselessData(r.Context())
+		raw := getRawDataFromContext(r.Context())
 
-		k, n := getKind(d), getName(d)
-
-		if k == "" || n == "" {
+		if notFilled(raw.Name, raw.Kind) {
 			http.NotFound(w, nil)
 			return
 		}
 		//TODO error handling. define response by error
-		metric, err := svc.Get(n, k)
+		metric, err := svc.Get(raw.Name, raw.Kind)
 		if err != nil && (errors.Is(err, service.ErrMetricIsNotExist) || errors.Is(err, service.ErrUnknownKind)) {
 			http.NotFound(w, nil)
 			return
@@ -105,45 +108,12 @@ func DisplayMetric(svc service.StorageService) http.HandlerFunc {
 	})
 }
 
-func cleanUselessData(ctx context.Context) []string {
-	r := make([]string, 0)
-
-	v := ctx.Value("type")
-	_ = v
-
-	r = appendIfIsFilled(r, chi.URLParamFromCtx(ctx, "type"))
-	r = appendIfIsFilled(r, chi.URLParamFromCtx(ctx, "name"))
-	r = appendIfIsFilled(r, chi.URLParamFromCtx(ctx, "value"))
-
-	return r
-}
-
-func appendIfIsFilled(r []string, v string) []string {
-	if v != "" {
-		r = append(r, v)
+func getRawDataFromContext(ctx context.Context) RawData {
+	return RawData{
+		Kind:  chi.URLParamFromCtx(ctx, "type"),
+		Name:  chi.URLParamFromCtx(ctx, "name"),
+		Value: chi.URLParamFromCtx(ctx, "value"),
 	}
-	return r
-}
-
-func getKind(data []string) string {
-	if len(data) > 0 {
-		return data[0]
-	}
-	return ""
-}
-
-func getName(data []string) string {
-	if len(data) > 1 {
-		return data[1]
-	}
-	return ""
-}
-
-func getValue(data []string) string {
-	if len(data) > 2 {
-		return data[2]
-	}
-	return ""
 }
 
 func getStatusCode(err error) int {
@@ -180,4 +150,17 @@ func allMetricsTemplate() string {
 			</ul>
 		</body>
 	</html>`
+}
+
+func filled(v ...string) bool {
+	for _, v := range v {
+		if v == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func notFilled(v ...string) bool {
+	return !filled(v...)
 }
