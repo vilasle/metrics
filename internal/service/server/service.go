@@ -63,56 +63,58 @@ func (s StorageService) Get(name string, kind string) (metric.Metric, error) {
 }
 
 func (s StorageService) getAllByKind(kind string) (map[string]metric.Metric, error) {
-	//TODO refactor it
-	result := make(map[string]metric.Metric, 0)
-
-	if kind == keyGauge {
-		gauges, err := s.gaugeStorage.All()
-		if err != nil {
-			return map[string]metric.Metric{}, err
-		}
-
-		for name, value := range gauges {
-			result[name] = metric.NewGaugeMetric(name, float64(value))
-		}
-	} else if kind == keyCounter {
-		counters, err := s.counterStorage.All()
-		if err != nil {
-			return map[string]metric.Metric{}, err
-		}
-
-		for name, value := range counters {
-			result[name] = metric.NewCounterMetric(name, int64(value))
-		}
-	} else {
+	switch kind {
+	case keyGauge:
+		return s.getGaugeMetrics()
+	case keyCounter:
+		return s.getCounterMetrics()
+	default:
 		return map[string]metric.Metric{}, service.ErrUnknownKind
 	}
-	
+}
+
+func (s StorageService) getGaugeMetrics() (map[string]metric.Metric, error) {
+	metrics, err := s.gaugeStorage.All()
+	if err != nil {
+		return map[string]metric.Metric{}, err
+	}
+
+	result := make(map[string]metric.Metric, len(metrics))
+	for name, value := range metrics {
+		result[name] = metric.NewGaugeMetric(name, float64(value))
+	}
+	return result, nil
+}
+
+func (s StorageService) getCounterMetrics() (map[string]metric.Metric, error) {
+	metrics, err := s.counterStorage.All()
+	if err != nil {
+		return map[string]metric.Metric{}, err
+	}
+
+	result := make(map[string]metric.Metric, len(metrics))
+	for name, value := range metrics {
+		result[name] = metric.NewCounterMetric(name, int64(value))
+	}
 	return result, nil
 }
 
 func (s StorageService) AllMetrics() ([]metric.Metric, error) {
-	//TODO refactor it
+	errs := make([]error, 0, 2)
 	result := make([]metric.Metric, 0)
-
-	counters, err := s.counterStorage.All()
-	if err != nil {
-		return []metric.Metric{}, err
+	
+	if metrics, err := s.getGaugeMetrics(); err == nil {
+		result = append(result, asSlice(metrics)...)
+	} else {
+		errs = append(errs, err)
 	}
 
-	for name, value := range counters {
-		result = append(result, metric.NewCounterMetric(name, int64(value)))
+	if metrics, err := s.getCounterMetrics(); err == nil {
+		result = append(result, asSlice(metrics)...)
+	} else {
+		errs = append(errs, err)
 	}
-
-	gauges, err := s.gaugeStorage.All()
-	if err != nil {
-		return []metric.Metric{}, err
-	}
-
-	for name, value := range gauges {
-		result = append(result, metric.NewGaugeMetric(name, float64(value)))
-	}
-	return result, nil
+	return result, errors.Join(errs...)
 }
 
 func (s StorageService) save(data metric.RawMetric) error {
@@ -150,4 +152,12 @@ func (s StorageService) getSaverByType(data metric.RawMetric) metricSaver {
 	default:
 		return unknownSaver{kind: data.Kind}
 	}
+}
+
+func asSlice(m map[string]metric.Metric) []metric.Metric {
+	result := make([]metric.Metric, 0, len(m))
+	for _, v := range m {
+		result = append(result, v)
+	}
+	return result
 }
