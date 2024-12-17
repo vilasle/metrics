@@ -2,7 +2,7 @@ package rest
 
 import (
 	"net/http"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -139,9 +139,11 @@ func TestHttpServer_IsRunning(t *testing.T) {
 			s := HTTPServer{
 				srv:     tt.fields.srv,
 				mux:     tt.fields.mux,
-				running: tt.fields.running,
-				stateMx: &sync.RWMutex{},
+				running: atomic.Bool{},
 			}
+
+			s.running.Store(tt.fields.running)
+
 			if got := s.IsRunning(); got != tt.want {
 				t.Errorf("HttpServer.IsRunning() = %v, want %v", got, tt.want)
 			}

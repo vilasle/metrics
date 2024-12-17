@@ -1,4 +1,4 @@
-package rest
+package json
 
 import (
 	"net/http"
@@ -46,7 +46,7 @@ func TestHTTPSender_Send(t *testing.T) {
 			server := httptest.NewServer(tt.handler)
 			defer server.Close()
 
-			sender, err := NewHTTPSender(server.URL)
+			sender, err := NewHTTPJsonSender(server.URL)
 			require.NoError(t, err)
 
 			err = sender.Send(tt.metrics)

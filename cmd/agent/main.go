@@ -11,7 +11,7 @@ import (
 	"math/rand"
 
 	"github.com/vilasle/metrics/internal/service/agent/collector"
-	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
+	"github.com/vilasle/metrics/internal/service/agent/sender/rest/json"
 )
 
 type runConfig struct {
@@ -77,7 +77,7 @@ func main() {
 	c.RegisterEvent(func(c *collector.RuntimeCollector) {
 		counter := c.GetCounterValue("PollCount")
 		counter.Increment()
-		
+
 		c.SetCounterValue(counter)
 	})
 
@@ -103,7 +103,8 @@ func main() {
 
 	fmt.Println("press ctrl+c to exit")
 
-	sender, err := rest.NewHTTPSender(updateAddress)
+	// sender, err := text.NewHTTPTextSender(updateAddress)
+	sender, err := json.NewHTTPJsonSender(updateAddress)
 	if err != nil {
 		fmt.Printf("can not create sender by reason %v", err)
 		os.Exit(2)

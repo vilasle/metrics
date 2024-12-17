@@ -2,9 +2,11 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -27,20 +29,80 @@ type RawData struct {
 
 func UpdateMetric(svc service.StorageService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw := getRawDataFromContext(r.Context())
-		err := svc.Save(
-			metric.NewRawMetric(raw.Name, raw.Kind, raw.Value),
-		)
+		content := r.Header.Get("Content-Type")
 
-		w.Header().Add("Content-Type", "text/plain")
-		w.WriteHeader(getStatusCode(err))
+		switch content {
+		case "text/plain":
+			handleUpdateAsTextPlain(svc, w, r)
+		case "application/json":
+			handleUpdateAsTextJson(svc, w, r)
+		default:
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 	})
+}
+
+func handleUpdateAsTextPlain(svc service.StorageService, w http.ResponseWriter, r *http.Request) {
+	raw := getRawDataFromContext(r.Context())
+	err := svc.Save(
+		metric.NewRawMetric(raw.Name, raw.Kind, raw.Value),
+	)
+
+	w.Header().Add("Content-Type", "text/plain")
+	w.WriteHeader(getStatusCode(err))
+}
+
+func handleUpdateAsTextJson(svc service.StorageService, w http.ResponseWriter, r *http.Request) {
+	//TODO now only check logic. need to pass tests
+	content, err := io.ReadAll(r.Body)
+	r.Body.Close()
+
+	if err != nil {
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
+	input := struct {
+		Id      string  `json:"id"`
+		Type    string  `json:"type"`
+		Gauge   float64 `json:"value"`
+		Counter int64   `json:"delta"`
+	}{}
+
+	err = json.Unmarshal(content, &input)
+	if err != nil {
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
+	raw := RawData{
+		Name: input.Id,
+		Kind: input.Type,
+	}
+
+	if raw.Kind == "gauge" {
+		raw.Value = fmt.Sprintf("%f", input.Gauge)
+	} else {
+		raw.Value = fmt.Sprintf("%d", input.Counter)
+	}
+
+	err = svc.Save(
+		metric.NewRawMetric(raw.Name, raw.Kind, raw.Value),
+	)
+
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+	}
+
+	w.Write(content)
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(200)
 }
 
 func DisplayAllMetrics(svc service.StorageService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//FIXME refactor it
-		//this handler catch url like /updater or /values and need make up how it control
+		//handler catch all unregistered handlers and block for they
 		if r.RequestURI != "/" {
 			http.NotFound(w, nil)
 			return
@@ -82,27 +144,92 @@ func DisplayAllMetrics(svc service.StorageService) http.HandlerFunc {
 
 func DisplayMetric(svc service.StorageService) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw := getRawDataFromContext(r.Context())
 
-		if notFilled(raw.Name, raw.Kind) {
-			http.NotFound(w, nil)
+		content := r.Header.Get("Content-Type")
+
+		switch content {
+		case "text/plain":
+			handleDisplayMetricAsTextPlain(svc, w, r)
+		case "application/json":
+			handleDisplayMetricAsTextJson(svc, w, r)
+		default:
+			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
-		//TODO error handling. define response by error
-		metric, err := svc.Get(raw.Name, raw.Kind)
-		if err != nil && (errors.Is(err, service.ErrMetricIsNotExist) || errors.Is(err, service.ErrUnknownKind)) {
-			http.NotFound(w, nil)
-			return
-		} else if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
-
-		w.Write([]byte(metric.Value()))
-
-		w.Header().Add("Content-Type", "text/plain]; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
 	})
+}
+
+func handleDisplayMetricAsTextPlain(svc service.StorageService, w http.ResponseWriter, r *http.Request) {
+	raw := getRawDataFromContext(r.Context())
+
+	if notFilled(raw.Name, raw.Kind) {
+		http.NotFound(w, nil)
+		return
+	}
+	//TODO error handling. define response by error
+	metric, err := svc.Get(raw.Name, raw.Kind)
+	if err != nil && (errors.Is(err, service.ErrMetricIsNotExist) || errors.Is(err, service.ErrUnknownKind)) {
+		http.NotFound(w, nil)
+		return
+	} else if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte(metric.Value()))
+
+	w.Header().Add("Content-Type", "text/plain]; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleDisplayMetricAsTextJson(svc service.StorageService, w http.ResponseWriter, r *http.Request) {
+	//TODO now only check logic. need to pass tests
+	content, err := io.ReadAll(r.Body)
+	r.Body.Close()
+
+	if err != nil {
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
+	input := struct {
+		Id      string  `json:"id"`
+		Type    string  `json:"type"`
+		Gauge   float64 `json:"value,omitempty"`
+		Counter int64   `json:"delta,omitempty"`
+	}{}
+
+	err = json.Unmarshal(content, &input)
+	if err != nil {
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
+	metric, err := svc.Get(input.Id, input.Type)
+	if err != nil && (errors.Is(err, service.ErrMetricIsNotExist) || errors.Is(err, service.ErrUnknownKind)) {
+		http.NotFound(w, nil)
+		return
+	} else if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	result, err := metric.ToJson()
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	content, err = json.Marshal(result)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(content)
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(200)
+
 }
 
 func getRawDataFromContext(ctx context.Context) RawData {

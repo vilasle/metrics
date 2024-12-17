@@ -1,6 +1,8 @@
 package metric
 
 import (
+	"encoding/json"
+
 	"github.com/vilasle/metrics/internal/model"
 )
 
@@ -8,6 +10,7 @@ type Metric interface {
 	Name() string
 	Type() string
 	Value() string
+	ToJson() ([]byte, error)
 }
 
 type GaugeMetric struct {
@@ -31,10 +34,22 @@ func (m GaugeMetric) Value() string {
 	return m.value.Value()
 }
 
+func (m GaugeMetric) ToJson() ([]byte, error) {
+	metric := struct {
+		ID    string  `json:"id"`
+		MType string  `json:"type"`
+		Value float64 `json:"value,omitempty"`
+	}{
+		ID:    m.name,
+		MType: m.value.Type(),
+		Value: float64(m.value),
+	}
+	return json.Marshal(metric)
+}
+
 func (m *GaugeMetric) SetValue(v float64) {
 	m.value = model.Gauge(v)
-} 
-
+}
 
 type CounterMetric struct {
 	name  string
@@ -56,6 +71,21 @@ func (m CounterMetric) Value() string {
 func (m CounterMetric) Type() string {
 	return m.value.Type()
 }
+
+func (m CounterMetric) ToJson() ([]byte, error) {
+	metric := struct {
+		ID    string `json:"id"`
+		MType string `json:"type"`
+		Delta int64  `json:"value,omitempty"`
+	}{
+		ID:    m.name,
+		MType: m.value.Type(),
+		Delta: int64(m.value),
+	}
+	return json.Marshal(metric)
+}
+
+
 
 func (m *CounterMetric) Increment() {
 	m.value++

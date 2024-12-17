@@ -3,7 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -11,11 +11,10 @@ import (
 )
 
 type HTTPServer struct {
-	srv     *http.Server
-	stateMx *sync.RWMutex
-	mux     *chi.Mux
+	srv *http.Server
+	mux *chi.Mux
 	//FIXME use atomic
-	running bool
+	running atomic.Bool
 }
 
 func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTTPServer {
@@ -26,7 +25,7 @@ func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTT
 		mux.Use(m)
 	}
 
-	return &HTTPServer{
+	srv := &HTTPServer{
 		srv: &http.Server{
 			Addr:         addr,
 			ReadTimeout:  10 * time.Second,
@@ -34,8 +33,11 @@ func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTT
 			IdleTimeout:  60 * time.Second,
 		},
 		mux:     mux,
-		stateMx: &sync.RWMutex{},
+		running: atomic.Bool{},
 	}
+	srv.running.Store(false)
+
+	return srv
 }
 
 func (s *HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.HandlerFunc) {
@@ -53,17 +55,9 @@ func (s *HTTPServer) Register(path string, methods []string, contentTypes []stri
 
 func (s *HTTPServer) Start() error {
 	s.srv.Handler = s.mux
-	//FIXME
-	s.stateMx.Lock()
-	s.running = true
-	s.stateMx.Unlock()
+	s.running.Swap(true)
 
-	defer func() {
-		//FIXME
-		s.stateMx.Lock()
-		s.running = false
-		s.stateMx.Unlock()
-	}()
+	defer s.running.Swap(false)
 
 	err := s.srv.ListenAndServe()
 
@@ -75,19 +69,13 @@ func (s *HTTPServer) Start() error {
 }
 
 func (s *HTTPServer) IsRunning() bool {
-	//FIXME
-	s.stateMx.Lock()
-	defer s.stateMx.Unlock()
-	return s.running
+	v := s.running.Load()
+	return v
 }
 
 func (s *HTTPServer) Stop() error {
 	if err := s.srv.Shutdown(context.Background()); err != nil {
-		//FIXME
-		s.stateMx.Lock()
-		s.running = false
-		s.stateMx.Unlock()
-
+		s.running.Swap(false)
 		return err
 	}
 	return nil
