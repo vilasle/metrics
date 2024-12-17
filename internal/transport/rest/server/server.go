@@ -40,7 +40,7 @@ func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTT
 	return srv
 }
 
-func (s *HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.HandlerFunc) {
+func (s *HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.Handler) {
 	s.mux.Route(path, func(r chi.Router) {
 		if len(methods) > 0 {
 			r.Use(allowedMethods(methods...))
@@ -49,7 +49,7 @@ func (s *HTTPServer) Register(path string, methods []string, contentTypes []stri
 		if len(contentTypes) > 0 {
 			r.Use(allowedContentType(contentTypes...))
 		}
-		r.HandleFunc("/*", handler)
+		r.Handle("/", handler)
 	})
 }
 

@@ -14,17 +14,42 @@ import (
 	"github.com/vilasle/metrics/internal/service"
 )
 
-type viewData struct {
-	Metrics []struct {
-		Name string
-		Link string
-	}
-}
-
-type RawData struct {
+type rawData struct {
 	Name  string
 	Kind  string
 	Value string
+}
+
+type Response interface {
+	Write(w http.ResponseWriter)
+}
+
+type HandlerWithResponse func(w http.ResponseWriter, r *http.Request) Response
+
+func (fn HandlerWithResponse) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	/*
+		response struct {
+			contentType string
+			content []byte
+			err error
+		}
+
+		return NewJsonResponse(content, err)
+		response := fn(w, r)
+		response.Write(w)
+	*/
+
+	// err := fn(w, r)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusBadRequest)
+	// }
+}
+
+func TestFn() HandlerWithResponse {
+	return func(w http.ResponseWriter, r *http.Request) Response {
+		//TODO implement it
+		panic("not implemented")
+	}
 }
 
 func UpdateMetric(svc service.StorageService) http.HandlerFunc {
@@ -76,7 +101,7 @@ func handleUpdateAsTextJson(svc service.StorageService, w http.ResponseWriter, r
 		return
 	}
 
-	raw := RawData{
+	raw := rawData{
 		Name: input.Id,
 		Kind: input.Type,
 	}
@@ -114,12 +139,13 @@ func DisplayAllMetrics(svc service.StorageService) http.HandlerFunc {
 			return
 		}
 
-		data := viewData{
-			Metrics: []struct {
+		data := struct {
+			Metrics []struct {
 				Name string
 				Link string
-			}{},
-		}
+			}
+		}{}
+
 		for _, m := range metrics {
 			data.Metrics = append(data.Metrics, struct {
 				Name string
@@ -232,8 +258,8 @@ func handleDisplayMetricAsTextJson(svc service.StorageService, w http.ResponseWr
 
 }
 
-func getRawDataFromContext(ctx context.Context) RawData {
-	return RawData{
+func getRawDataFromContext(ctx context.Context) rawData {
+	return rawData{
 		Kind:  chi.URLParamFromCtx(ctx, "type"),
 		Name:  chi.URLParamFromCtx(ctx, "name"),
 		Value: chi.URLParamFromCtx(ctx, "value"),
