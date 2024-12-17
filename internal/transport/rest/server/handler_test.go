@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -210,10 +211,81 @@ func TestUpdateMetricAsPlainText(t *testing.T) {
 	}
 }
 
-func TestDisplayAllMetricsAsHtml(t *testing.T) {}
+func TestDisplayAllMetricsAsHtml(t *testing.T) {
+	gaugeStorage := memory.NewMetricGaugeMemoryRepository()
+	counterStorage := memory.NewMetricCounterMemoryRepository()
+
+	gaugeStorage.Save("gauge1", 1.05)
+	gaugeStorage.Save("gauge2", 1.15)
+
+	counterStorage.Save("counter1", 2)
+	counterStorage.Save("counter2", 3)
+
+	testCases := []struct {
+		name       string
+		path       string
+		statusCode int
+		svc        *server.StorageService
+		contents   bool
+		exp        string
+	}{
+		{
+			name:       "get several metrics",
+			statusCode: http.StatusOK,
+			path:       "/",
+			svc: server.NewStorageService(
+				gaugeStorage,
+				counterStorage,
+			),
+			contents: true,
+			exp: `<li>.+<\/li>`,
+		},
+		{
+			name:       "empty storage",
+			statusCode: http.StatusOK,
+			path:       "/",
+			svc: server.NewStorageService(
+				memory.NewMetricGaugeMemoryRepository(),
+				memory.NewMetricCounterMemoryRepository(),
+			),
+			contents: false,
+			exp:      `<li>.+<\/li>`,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, tt.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RequestURI = tt.path
+
+			ctx := chi.NewRouteContext()
+
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
+
+			rr := httptest.NewRecorder()
+			handler := DisplayAllMetrics(tt.svc)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.statusCode, rr.Code)
+
+			if rr.Code == http.StatusOK {
+				body := rr.Body.String()
+				exp := regexp.MustCompile(tt.exp)
+				if tt.contents {
+					assert.Regexp(t, exp, body)
+				} else {
+					assert.NotRegexp(t, exp, body)
+				}
+			}
+		})
+	}
+
+}
 
 func TestDisplayMetricAsPlainText(t *testing.T) {
-
 	gaugeStorage := memory.NewMetricGaugeMemoryRepository()
 	counterStorage := memory.NewMetricCounterMemoryRepository()
 

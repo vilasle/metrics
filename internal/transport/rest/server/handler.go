@@ -46,21 +46,18 @@ func DisplayAllMetrics(svc service.StorageService) http.HandlerFunc {
 			return
 		}
 
-		if r.Method != http.MethodGet {
-			http.Error(w, "", http.StatusMethodNotAllowed)
-			return
-		}
-
 		metrics, err := svc.AllMetrics()
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
-		data := viewData{Metrics: []struct {
-			Name string
-			Link string
-		}{}}
+		data := viewData{
+			Metrics: []struct {
+				Name string
+				Link string
+			}{},
+		}
 		for _, m := range metrics {
 			data.Metrics = append(data.Metrics, struct {
 				Name string
