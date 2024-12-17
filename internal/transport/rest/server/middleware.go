@@ -61,6 +61,7 @@ func allowedContentType(contentTypes ...string) func(h http.Handler) http.Handle
 	}
 }
 
+// TODO hide zap logger under interface Logger
 func WithLogger(logger *zap.SugaredLogger) func(h http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
