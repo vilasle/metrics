@@ -139,8 +139,6 @@ func registerHandlers(srv *rest.HTTPServer, svc *service.StorageService) {
 	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
 	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
 	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
-	//FIXME it's example
-	srv.Register("/test", nil, nil, rest.TestFn())
 }
 
 func toSlice(it ...string) []string {
