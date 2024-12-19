@@ -12,52 +12,54 @@ type Response interface {
 	Write(w http.ResponseWriter)
 }
 
-type JsonResponse struct {
+type simpleResponse struct {
 	content []byte
 	err     error
 }
 
+func (r simpleResponse) Write(w http.ResponseWriter) {
+	w.WriteHeader(getStatusCode(r.err))
+
+	w.Write(r.content)
+}
+
+type JsonResponse struct {
+	sp simpleResponse
+}
+
 func NewJsonResponse(content []byte, err error) Response {
-	return JsonResponse{content: content, err: err}
+	return JsonResponse{sp: simpleResponse{content: content, err: err}}
 }
 
 func (r JsonResponse) Write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "application/json")
-
-	w.Write(r.content)
-	w.WriteHeader(getStatusCode(r.err))
+	r.sp.Write(w)
 }
 
 type TextResponse struct {
-	content []byte
-	err     error
+	sp simpleResponse
 }
 
 func NewTextResponse(content []byte, err error) Response {
-	return TextResponse{content: content, err: err}
+	return TextResponse{sp: simpleResponse{content: content, err: err}}
 }
 
 func (r TextResponse) Write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "text/plain")
-
-	w.WriteHeader(getStatusCode(r.err))
-	w.Write(r.content)
+	r.sp.Write(w)
 }
 
 type HtmlResponse struct {
-	content []byte
-	err     error
+	sp simpleResponse
 }
 
 func NewHtmlResponse(content []byte, err error) Response {
-	return HtmlResponse{content: content, err: err}
+	return HtmlResponse{sp: simpleResponse{content: content, err: err}}
 }
 
 func (r HtmlResponse) Write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "text/html")
-
-	w.WriteHeader(getStatusCode(r.err))
-	w.Write(r.content)
+	r.sp.Write(w)
 }
 
 func getStatusCode(err error) int {
@@ -74,17 +76,24 @@ func getStatusCode(err error) int {
 }
 
 func errorBadRequest(err error) bool {
-	return errIs(err, service.ErrEmptyKind, 
-		service.ErrUnknownKind, 
-		service.ErrInvalidValue, 
-		service.ErrEmptyValue, 
-		ErrEmptyRequestBody, 
-		metric.ErrInvalidMetric)
+	return errIs(err, 
+		service.ErrEmptyKind,
+		service.ErrUnknownKind,
+		service.ErrInvalidValue,
+		service.ErrEmptyValue,
+		ErrEmptyRequestBody,
+		metric.ErrInvalidMetric,
+		metric.ErrNotFilledValue,
+	)
 }
 func errorNotFound(err error) bool {
-	return errIs(err, service.ErrEmptyName,
+	return errIs(err, 
+		service.ErrEmptyName,
+		service.ErrMetricIsNotExist, 
+		service.ErrUnknownKind,
 		ErrForbiddenResource,
-		ErrEmptyRequiredFields)
+		ErrEmptyRequiredFields,
+	)
 }
 
 func errorUnsupportedContent(err error) bool {

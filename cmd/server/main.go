@@ -42,9 +42,7 @@ func main() {
 		}
 	}()
 
-	conf := getConfig()
-
-	logger := createLogger()
+	conf, logger := getConfig(), createLogger()
 	defer logger.Sync()
 
 	sugar := logger.Sugar()
@@ -125,11 +123,9 @@ func createLogger() *zap.Logger {
 
 func createAndPreparingServer(addr string, logger *zap.SugaredLogger) *rest.HTTPServer {
 	server := rest.NewHTTPServer(addr, rest.WithLogger(logger))
-
 	svc := createRepositoryService()
 
 	registerHandlers(server, svc)
-
 	return server
 }
 

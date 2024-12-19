@@ -1,11 +1,9 @@
 package rest
 
 import (
-	"context"
 	"io"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service"
 )
@@ -16,16 +14,16 @@ type rawData struct {
 	Value string
 }
 
+/*
+auto-tests use filled Content-Type header only for iter1
+that's why handle any Content-Type as text/plain with exception of application/json
+*/
 func updateMetric(svc service.StorageService, r *http.Request) Response {
-	contentType := r.Header.Get("Content-Type")
-
-	switch contentType {
-	case "text/plain":
-		return handleUpdateAsTextPlain(svc, r)
+	switch r.Header.Get("Content-Type") {
 	case "application/json":
 		return handleUpdateAsTextJson(svc, r)
 	default:
-		return NewTextResponse(emptyBody(), ErrUnknownContentType)
+		return handleUpdateAsTextPlain(svc, r)
 	}
 }
 
@@ -64,12 +62,4 @@ func handleUpdateAsTextJson(svc service.StorageService, r *http.Request) Respons
 
 	updContent, err := updMetric.ToJson()
 	return NewJsonResponse(updContent, err)
-}
-
-func getRawDataFromContext(ctx context.Context) rawData {
-	return rawData{
-		Kind:  chi.URLParamFromCtx(ctx, "type"),
-		Name:  chi.URLParamFromCtx(ctx, "name"),
-		Value: chi.URLParamFromCtx(ctx, "value"),
-	}
 }

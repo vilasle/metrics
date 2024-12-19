@@ -107,27 +107,35 @@ func FromJSON(content []byte) (RawMetric, error) {
 		return RawMetric{}, ErrInvalidMetric
 	}
 
-	if object.MType == "gauge" && object.Value != nil {
-		return newGaugeRawMetric(object.Id, *object.Value), nil
-	} else if object.MType == "counter" && object.Delta != nil {
-		return newCounterRawMetric(object.Id, *object.Delta), nil
+	if object.MType == "gauge" {
+		return newGaugeRawMetric(object.Id, object.Value)
+	} else if object.MType == "counter" {
+		return newCounterRawMetric(object.Id, object.Delta)
 	} else {
 		return RawMetric{}, ErrInvalidMetric
 	}
 }
 
-func newGaugeRawMetric(name string, value float64) RawMetric {
+func newGaugeRawMetric(name string, value *float64) (RawMetric, error) {
+	if value == nil {
+		return RawMetric{Name: name, Kind: "gauge"}, ErrNotFilledValue
+	}
+
 	return RawMetric{
 		Name:  name,
 		Kind:  "gauge",
-		Value: strconv.FormatFloat(value, 'f', -1, 64),
-	}
+		Value: strconv.FormatFloat(*value, 'f', -1, 64),
+	}, nil
 }
 
-func newCounterRawMetric(name string, value int64) RawMetric {
+func newCounterRawMetric(name string, value *int64) (RawMetric, error) {
+	if value == nil {
+		return RawMetric{Name: name, Kind: "counter"}, ErrNotFilledValue
+	}
+
 	return RawMetric{
 		Name:  name,
 		Kind:  "counter",
-		Value: strconv.FormatInt(value, 10),
-	}
+		Value: strconv.FormatInt(*value, 10),
+	}, nil
 }

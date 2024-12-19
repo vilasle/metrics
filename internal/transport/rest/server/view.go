@@ -2,8 +2,10 @@ package rest
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 
 	"github.com/vilasle/metrics/internal/metric"
@@ -11,7 +13,7 @@ import (
 )
 
 func showAllMetrics(svc service.StorageService, r *http.Request) Response {
-	//handler catch all unregistered handlers and block for they
+	//handler catch all unregistered endpoints and block they
 	if r.RequestURI != "/" {
 		return NewTextResponse(emptyBody(), ErrForbiddenResource)
 	}
@@ -56,94 +58,56 @@ func generateViewOfAllMetrics(metrics []metric.Metric) ([]byte, error) {
 	}
 }
 
+/*
+auto-tests use filled Content-Type header only for iter1
+that's why handle any Content-Type as text/plain with exception of application/json
+*/
 func showSpecificMetric(svc service.StorageService, r *http.Request) Response {
-	contentType := r.Header.Get("Content-Type")
-
-	switch contentType {
-	case "text/plain":
-		return handleDisplayMetricAsTextPlain(svc, r)
+	switch r.Header.Get("Content-Type") {
 	case "application/json":
-		return handleUpdateAsTextJson(svc, r)
+		return handleDisplayMetricAsTextJson(svc, r)
 	default:
-		return NewTextResponse(emptyBody(), ErrUnknownContentType)
+		return handleDisplayMetricAsTextPlain(svc, r)
 	}
 }
 
 func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request) Response {
-	//TODO implement it
-	panic("not implemented")
-	// raw := getRawDataFromContext(r.Context())
+	raw := getRawDataFromContext(r.Context())
 
-	// if notFilled(raw.Name, raw.Kind) {
-	// 	http.NotFound(w, nil)
-	// 	return
-	// }
-	// //TODO error handling. define response by error
-	// metric, err := svc.Get(raw.Name, raw.Kind)
-	// if err != nil && (errors.Is(err, service.ErrMetricIsNotExist) || errors.Is(err, service.ErrUnknownKind)) {
-	// 	http.NotFound(w, nil)
-	// 	return
-	// } else if err != nil {
-	// 	http.Error(w, "", http.StatusInternalServerError)
-	// 	return
-	// }
+	if notFilled(raw.Name, raw.Kind) {
+		return NewTextResponse(emptyBody(), ErrEmptyRequiredFields)
+	}
 
-	// w.Write([]byte(metric.Value()))
-
-	// w.Header().Add("Content-Type", "text/plain]; charset=utf-8")
-	// w.WriteHeader(http.StatusOK)
+	metric, err := svc.Get(raw.Name, raw.Kind)
+	if err != nil {
+		return NewTextResponse(emptyBody(), err)
+	}
+	return NewTextResponse([]byte(metric.Value()), nil)
 }
 
 func handleDisplayMetricAsTextJson(svc service.StorageService, r *http.Request) Response {
-	//TODO implement it
-	panic("not implemented")
-	// //TODO now only check logic. need to pass tests
-	// content, err := io.ReadAll(r.Body)
-	// r.Body.Close()
+	defer r.Body.Close()
+	if r.Body == http.NoBody {
+		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
+	}
+	content, err := io.ReadAll(r.Body)
 
-	// if err != nil {
-	// 	http.Error(w, "", http.StatusBadRequest)
-	// 	return
-	// }
+	if err != nil {
+		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+	}
 
-	// input := struct {
-	// 	Id      string  `json:"id"`
-	// 	Type    string  `json:"type"`
-	// 	Gauge   float64 `json:"value,omitempty"`
-	// 	Counter int64   `json:"delta,omitempty"`
-	// }{}
+	m, err := metric.FromJSON(content)
+	if err != nil && !errors.Is(err, metric.ErrNotFilledValue) {
+		return NewTextResponse(emptyBody(), err)
+	}
 
-	// err = json.Unmarshal(content, &input)
-	// if err != nil {
-	// 	http.Error(w, "", http.StatusBadRequest)
-	// 	return
-	// }
+	metric, err := svc.Get(m.Name, m.Kind)
+	if err != nil {
+		return NewTextResponse(emptyBody(), err)
+	}
 
-	// metric, err := svc.Get(input.Id, input.Type)
-	// if err != nil && (errors.Is(err, service.ErrMetricIsNotExist) || errors.Is(err, service.ErrUnknownKind)) {
-	// 	http.NotFound(w, nil)
-	// 	return
-	// } else if err != nil {
-	// 	http.Error(w, "", http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// result, err := metric.ToJson()
-	// if err != nil {
-	// 	http.Error(w, "", http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// content, err = json.Marshal(result)
-	// if err != nil {
-	// 	http.Error(w, "", http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// w.Write(content)
-	// w.Header().Add("Content-Type", "application/json")
-	// w.WriteHeader(200)
-
+	metricContent, err := metric.ToJson()
+	return NewJsonResponse(metricContent, err)
 }
 
 func allMetricsTemplate() string {
