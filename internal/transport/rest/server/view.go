@@ -65,7 +65,7 @@ that's why handle any Content-Type as text/plain with exception of application/j
 func showSpecificMetric(svc service.StorageService, r *http.Request) Response {
 	switch r.Header.Get("Content-Type") {
 	case "application/json":
-		return handleDisplayMetricAsTextJson(svc, r)
+		return handleDisplayMetricAsTextJSON(svc, r)
 	default:
 		return handleDisplayMetricAsTextPlain(svc, r)
 	}
@@ -85,7 +85,7 @@ func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request)
 	return NewTextResponse([]byte(metric.Value()), nil)
 }
 
-func handleDisplayMetricAsTextJson(svc service.StorageService, r *http.Request) Response {
+func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
 		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)

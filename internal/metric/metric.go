@@ -93,7 +93,7 @@ func (m *CounterMetric) Increment() {
 
 func FromJSON(content []byte) (RawMetric, error) {
 	object := struct {
-		Id    string   `json:"id"`
+		ID    string   `json:"id"`
 		MType string   `json:"type"`
 		Delta *int64   `json:"delta,omitempty"`
 		Value *float64 `json:"value,omitempty"`
@@ -103,14 +103,14 @@ func FromJSON(content []byte) (RawMetric, error) {
 		return RawMetric{}, errors.Join(ErrInvalidMetric, err)
 	}
 
-	if object.Id == "" {
+	if object.ID == "" {
 		return RawMetric{}, ErrInvalidMetric
 	}
 
 	if object.MType == "gauge" {
-		return newGaugeRawMetric(object.Id, object.Value)
+		return newGaugeRawMetric(object.ID, object.Value)
 	} else if object.MType == "counter" {
-		return newCounterRawMetric(object.Id, object.Delta)
+		return newCounterRawMetric(object.ID, object.Delta)
 	} else {
 		return RawMetric{}, ErrInvalidMetric
 	}

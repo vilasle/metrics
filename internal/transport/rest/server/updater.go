@@ -21,7 +21,7 @@ that's why handle any Content-Type as text/plain with exception of application/j
 func updateMetric(svc service.StorageService, r *http.Request) Response {
 	switch r.Header.Get("Content-Type") {
 	case "application/json":
-		return handleUpdateAsTextJson(svc, r)
+		return handleUpdateAsTextJSON(svc, r)
 	default:
 		return handleUpdateAsTextPlain(svc, r)
 	}
@@ -35,7 +35,7 @@ func handleUpdateAsTextPlain(svc service.StorageService, r *http.Request) Respon
 	return NewTextResponse(emptyBody(), err)
 }
 
-func handleUpdateAsTextJson(svc service.StorageService, r *http.Request) Response {
+func handleUpdateAsTextJSON(svc service.StorageService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
 		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
