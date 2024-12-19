@@ -12,7 +12,7 @@ type Metric interface {
 	Name() string
 	Type() string
 	Value() string
-	ToJson() ([]byte, error)
+	ToJSON() ([]byte, error)
 }
 
 type GaugeMetric struct {
@@ -36,7 +36,7 @@ func (m GaugeMetric) Value() string {
 	return m.value.Value()
 }
 
-func (m GaugeMetric) ToJson() ([]byte, error) {
+func (m GaugeMetric) ToJSON() ([]byte, error) {
 	metric := struct {
 		ID    string  `json:"id"`
 		MType string  `json:"type"`
@@ -74,7 +74,7 @@ func (m CounterMetric) Type() string {
 	return m.value.Type()
 }
 
-func (m CounterMetric) ToJson() ([]byte, error) {
+func (m CounterMetric) ToJSON() ([]byte, error) {
 	metric := struct {
 		ID    string `json:"id"`
 		MType string `json:"type"`

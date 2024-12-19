@@ -23,15 +23,15 @@ func (r simpleResponse) Write(w http.ResponseWriter) {
 	w.Write(r.content)
 }
 
-type JsonResponse struct {
+type JSONResponse struct {
 	sp simpleResponse
 }
 
-func NewJsonResponse(content []byte, err error) Response {
-	return JsonResponse{sp: simpleResponse{content: content, err: err}}
+func NewJSONResponse(content []byte, err error) Response {
+	return JSONResponse{sp: simpleResponse{content: content, err: err}}
 }
 
-func (r JsonResponse) Write(w http.ResponseWriter) {
+func (r JSONResponse) Write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "application/json")
 	r.sp.Write(w)
 }
@@ -49,15 +49,15 @@ func (r TextResponse) Write(w http.ResponseWriter) {
 	r.sp.Write(w)
 }
 
-type HtmlResponse struct {
+type HTMLResponse struct {
 	sp simpleResponse
 }
 
-func NewHtmlResponse(content []byte, err error) Response {
-	return HtmlResponse{sp: simpleResponse{content: content, err: err}}
+func NewHTMLResponse(content []byte, err error) Response {
+	return HTMLResponse{sp: simpleResponse{content: content, err: err}}
 }
 
-func (r HtmlResponse) Write(w http.ResponseWriter) {
+func (r HTMLResponse) Write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "text/html")
 	r.sp.Write(w)
 }

@@ -24,7 +24,7 @@ func showAllMetrics(svc service.StorageService, r *http.Request) Response {
 	}
 
 	content, err := generateViewOfAllMetrics(metrics)
-	return NewHtmlResponse(content, err)
+	return NewHTMLResponse(content, err)
 }
 
 func generateViewOfAllMetrics(metrics []metric.Metric) ([]byte, error) {
@@ -106,8 +106,8 @@ func handleDisplayMetricAsTextJson(svc service.StorageService, r *http.Request) 
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	metricContent, err := metric.ToJson()
-	return NewJsonResponse(metricContent, err)
+	metricContent, err := metric.ToJSON()
+	return NewJSONResponse(metricContent, err)
 }
 
 func allMetricsTemplate() string {

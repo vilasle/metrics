@@ -27,7 +27,7 @@ func NewHTTPJsonSender(addr string) (HTTPJsonSender, error) {
 
 func (s HTTPJsonSender) Send(value metric.Metric) error {
 	u := *s.URL
-	content, err := value.ToJson()
+	content, err := value.ToJSON()
 	if err != nil {
 		return err
 	}

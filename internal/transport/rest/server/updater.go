@@ -60,6 +60,6 @@ func handleUpdateAsTextJson(svc service.StorageService, r *http.Request) Respons
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	updContent, err := updMetric.ToJson()
-	return NewJsonResponse(updContent, err)
+	updContent, err := updMetric.ToJSON()
+	return NewJSONResponse(updContent, err)
 }
