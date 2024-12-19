@@ -40,7 +40,7 @@ func (m GaugeMetric) ToJSON() ([]byte, error) {
 	metric := struct {
 		ID    string  `json:"id"`
 		MType string  `json:"type"`
-		Value float64 `json:"value,omitempty"`
+		Value float64 `json:"value"`
 	}{
 		ID:    m.name,
 		MType: m.value.Type(),
@@ -78,7 +78,7 @@ func (m CounterMetric) ToJSON() ([]byte, error) {
 	metric := struct {
 		ID    string `json:"id"`
 		MType string `json:"type"`
-		Delta int64  `json:"value,omitempty"`
+		Delta int64  `json:"delta"`
 	}{
 		ID:    m.name,
 		MType: m.value.Type(),

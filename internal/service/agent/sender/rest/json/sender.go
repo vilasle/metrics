@@ -50,9 +50,15 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 
 	switch statusCode {
 	case http.StatusNotFound:
-		err = errors.Join(rest.ErrWrongMetricName, fmt.Errorf("status code %d", statusCode))
+		err = errors.Join(
+			rest.ErrWrongMetricName,
+			fmt.Errorf("status code %d. metric = %s",
+				statusCode, string(content)))
 	case http.StatusBadRequest:
-		err = errors.Join(rest.ErrWrongMetricTypeOrValue, fmt.Errorf("status code %d", statusCode))
+		err = errors.Join(
+			rest.ErrWrongMetricTypeOrValue,
+			fmt.Errorf("status code %d. metric = %s",
+				statusCode, string(content)))
 	}
 
 	return err
