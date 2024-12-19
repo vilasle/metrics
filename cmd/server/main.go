@@ -115,7 +115,7 @@ func createRepositoryService() *service.StorageService {
 
 func createLogger() *zap.Logger {
 	encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
-	core := zapcore.NewCore(encoder, os.Stdout, zap.InfoLevel)
+	core := zapcore.NewCore(encoder, os.Stdout, zap.DebugLevel)
 
 	logger := zap.New(core, zap.WithCaller(false), zap.AddStacktrace(zap.ErrorLevel))
 	return logger
@@ -125,16 +125,16 @@ func createAndPreparingServer(addr string, logger *zap.SugaredLogger) *rest.HTTP
 	server := rest.NewHTTPServer(addr, rest.WithLogger(logger))
 	svc := createRepositoryService()
 
-	registerHandlers(server, svc)
+	registerHandlers(server, svc, logger)
 	return server
 }
 
-func registerHandlers(srv *rest.HTTPServer, svc *service.StorageService) {
-	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
-	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
-	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
-	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
-	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+func registerHandlers(srv *rest.HTTPServer, svc *service.StorageService, logger *zap.SugaredLogger) {
+	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc, logger))
+	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc, logger))
+	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc, logger))
+	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc, logger))
+	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc, logger))
 }
 
 func toSlice(it ...string) []string {

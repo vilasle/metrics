@@ -10,6 +10,7 @@ import (
 
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service"
+	"go.uber.org/zap"
 )
 
 func showAllMetrics(svc service.StorageService, r *http.Request) Response {
@@ -62,18 +63,18 @@ func generateViewOfAllMetrics(metrics []metric.Metric) ([]byte, error) {
 auto-tests use filled Content-Type header only for iter1
 that's why handle any Content-Type as text/plain with exception of application/json
 */
-func showSpecificMetric(svc service.StorageService, r *http.Request) Response {
+func showSpecificMetric(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
 	switch r.Header.Get("Content-Type") {
 	case "application/json":
-		return handleDisplayMetricAsTextJSON(svc, r)
+		return handleDisplayMetricAsTextJSON(svc, r, logger)
 	default:
-		return handleDisplayMetricAsTextPlain(svc, r)
+		return handleDisplayMetricAsTextPlain(svc, r, logger)
 	}
 }
 
-func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request) Response {
+func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
 	raw := getRawDataFromContext(r.Context())
-
+	logger.Debugw("raw data from url", "url", r.URL.String(), "raw", raw)
 	if notFilled(raw.Name, raw.Kind) {
 		return NewTextResponse(emptyBody(), ErrEmptyRequiredFields)
 	}
@@ -85,7 +86,7 @@ func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request)
 	return NewTextResponse([]byte(metric.Value()), nil)
 }
 
-func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request) Response {
+func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
 		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
@@ -96,6 +97,8 @@ func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request) 
 		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
+	logger.Debugw("request body", "url", r.URL.String(), "body", string(content))
+
 	m, err := metric.FromJSON(content)
 	if err != nil && !errors.Is(err, metric.ErrNotFilledValue) {
 		return NewTextResponse(emptyBody(), err)
@@ -105,6 +108,7 @@ func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request) 
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
+	logger.Debugw("updated metric", "metric", metric)
 
 	metricContent, err := metric.ToJSON()
 	return NewJSONResponse(metricContent, err)
