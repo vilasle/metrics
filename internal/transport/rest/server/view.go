@@ -57,25 +57,19 @@ func generateViewOfAllMetrics(metrics []metric.Metric) ([]byte, error) {
 }
 
 func showSpecificMetric(svc service.StorageService, r *http.Request) Response {
-	//TODO implement it
-	panic("not implemented")
-	// return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
 
-	// 	content := r.Header.Get("Content-Type")
-
-	// 	switch content {
-	// 	case "text/plain":
-	// 		handleDisplayMetricAsTextPlain(svc, w, r)
-	// 	case "application/json":
-	// 		handleDisplayMetricAsTextJson(svc, w, r)
-	// 	default:
-	// 		http.Error(w, "", http.StatusBadRequest)
-	// 		return
-	// 	}
-	// })
+	switch contentType {
+	case "text/plain":
+		return handleDisplayMetricAsTextPlain(svc, r)
+	case "application/json":
+		return handleUpdateAsTextJson(svc, r)
+	default:
+		return NewTextResponse(emptyBody(), ErrUnknownContentType)
+	}
 }
 
-func handleDisplayMetricAsTextPlain(svc service.StorageService, w http.ResponseWriter, r *http.Request) {
+func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request) Response {
 	//TODO implement it
 	panic("not implemented")
 	// raw := getRawDataFromContext(r.Context())
@@ -100,7 +94,7 @@ func handleDisplayMetricAsTextPlain(svc service.StorageService, w http.ResponseW
 	// w.WriteHeader(http.StatusOK)
 }
 
-func handleDisplayMetricAsTextJson(svc service.StorageService, w http.ResponseWriter, r *http.Request) {
+func handleDisplayMetricAsTextJson(svc service.StorageService, r *http.Request) Response {
 	//TODO implement it
 	panic("not implemented")
 	// //TODO now only check logic. need to pass tests

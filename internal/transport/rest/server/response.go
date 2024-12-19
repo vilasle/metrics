@@ -74,20 +74,28 @@ func getStatusCode(err error) int {
 }
 
 func errorBadRequest(err error) bool {
-	return errors.Is(err, service.ErrEmptyKind) ||
-		errors.Is(err, service.ErrUnknownKind) ||
-		errors.Is(err, service.ErrInvalidValue) ||
-		errors.Is(err, service.ErrEmptyValue) ||
-		errors.Is(err, ErrEmptyRequestBody) ||
-		errors.Is(err, metric.ErrInvalidMetricType) ||
-		errors.Is(err, metric.ErrInvalidMetric)
+	return errIs(err, service.ErrEmptyKind, 
+		service.ErrUnknownKind, 
+		service.ErrInvalidValue, 
+		service.ErrEmptyValue, 
+		ErrEmptyRequestBody, 
+		metric.ErrInvalidMetric)
 }
-
 func errorNotFound(err error) bool {
-	return errors.Is(err, service.ErrEmptyName) ||
-		errors.Is(err, ErrForbiddenResource)
+	return errIs(err, service.ErrEmptyName,
+		ErrForbiddenResource,
+		ErrEmptyRequiredFields)
 }
 
 func errorUnsupportedContent(err error) bool {
-	return errors.Is(err, ErrUnknownContentType)
+	return errIs(err, ErrUnknownContentType)
+}
+
+func errIs(err error, errs ...error) bool {
+	for _, e := range errs {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
+	return false
 }

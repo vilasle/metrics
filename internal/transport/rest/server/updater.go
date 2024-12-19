@@ -27,7 +27,6 @@ func updateMetric(svc service.StorageService, r *http.Request) Response {
 	default:
 		return NewTextResponse(emptyBody(), ErrUnknownContentType)
 	}
-
 }
 
 func handleUpdateAsTextPlain(svc service.StorageService, r *http.Request) Response {

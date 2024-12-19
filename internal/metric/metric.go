@@ -3,7 +3,6 @@ package metric
 import (
 	"encoding/json"
 	"errors"
-	"regexp"
 	"strconv"
 
 	"github.com/vilasle/metrics/internal/model"
@@ -94,31 +93,26 @@ func (m *CounterMetric) Increment() {
 
 func FromJSON(content []byte) (RawMetric, error) {
 	object := struct {
-		Id    string  `json:"id"`
-		MType string  `json:"type"`
-		Delta int64   `json:"delta,omitempty"`
-		Value float64 `json:"value,omitempty"`
+		Id    string   `json:"id"`
+		MType string   `json:"type"`
+		Delta *int64   `json:"delta,omitempty"`
+		Value *float64 `json:"value,omitempty"`
 	}{}
-	//zero is valid value of metrics because
-	//if body does not contain 'delta' or 'value' fields, will take is as wrong metric
-	if ok, err := regexp.Match("((counter.+delta)|(delta.+counter))|((gauge.+value)|(value.+gauge))", content); err != nil || !ok {
-		return RawMetric{}, ErrInvalidMetric
-	}
-
-	object.Delta = 0
-	object.Value = 0
-
 	err := json.Unmarshal(content, &object)
 	if err != nil {
 		return RawMetric{}, errors.Join(ErrInvalidMetric, err)
 	}
 
-	if object.MType == "gauge" {
-		return newGaugeRawMetric(object.Id, object.Value), nil
-	} else if object.MType == "counter" {
-		return newCounterRawMetric(object.Id, object.Delta), nil
+	if object.Id == "" {
+		return RawMetric{}, ErrInvalidMetric
+	}
+
+	if object.MType == "gauge" && object.Value != nil {
+		return newGaugeRawMetric(object.Id, *object.Value), nil
+	} else if object.MType == "counter" && object.Delta != nil {
+		return newCounterRawMetric(object.Id, *object.Delta), nil
 	} else {
-		return RawMetric{}, ErrInvalidMetricType
+		return RawMetric{}, ErrInvalidMetric
 	}
 }
 
