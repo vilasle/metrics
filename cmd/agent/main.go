@@ -103,7 +103,6 @@ func main() {
 
 	fmt.Println("press ctrl+c to exit")
 
-	// sender, err := text.NewHTTPTextSender(updateAddress)
 	sender, err := json.NewHTTPJsonSender(updateAddress)
 	if err != nil {
 		fmt.Printf("can not create sender by reason %v", err)

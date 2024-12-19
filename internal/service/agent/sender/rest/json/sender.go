@@ -1,12 +1,10 @@
 package json
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
@@ -14,7 +12,7 @@ import (
 
 type HTTPJsonSender struct {
 	*url.URL
-	client http.Client
+	httpClient
 }
 
 func NewHTTPJsonSender(addr string) (HTTPJsonSender, error) {
@@ -22,7 +20,7 @@ func NewHTTPJsonSender(addr string) (HTTPJsonSender, error) {
 	if err != nil {
 		return HTTPJsonSender{}, err
 	}
-	return HTTPJsonSender{URL: u, client: http.Client{Timeout: time.Second * 5}}, nil
+	return HTTPJsonSender{URL: u, httpClient: newClient(true)}, nil
 }
 
 func (s HTTPJsonSender) Send(value metric.Metric) error {
@@ -32,9 +30,7 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 		return err
 	}
 
-	rd := bytes.NewReader(content)
-
-	req, err := http.NewRequest(http.MethodPost, u.String(), rd)
+	req, err := s.NewRequest(http.MethodPost, u.String(), content)
 	if err != nil {
 		return err
 	}
