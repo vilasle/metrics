@@ -62,7 +62,7 @@ func (c *RuntimeCollector) Collect() {
 		if !fld.IsValid() {
 			return
 		}
-		//NumGC,NumForcedGC
+
 		switch fld.Kind() {
 		case reflect.Uint64,
 			reflect.Uint32,

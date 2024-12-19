@@ -115,7 +115,7 @@ func createRepositoryService() *service.StorageService {
 
 func createLogger() *zap.Logger {
 	encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
-	core := zapcore.NewCore(encoder, os.Stdout, zap.DebugLevel)
+	core := zapcore.NewCore(encoder, os.Stdout, zap.InfoLevel)
 
 	logger := zap.New(core, zap.WithCaller(false), zap.AddStacktrace(zap.ErrorLevel))
 	return logger
