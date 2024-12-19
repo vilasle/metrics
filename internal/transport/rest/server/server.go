@@ -3,7 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -11,18 +11,21 @@ import (
 )
 
 type HTTPServer struct {
-	srv     *http.Server
-	stateMx *sync.RWMutex
-	mux     *chi.Mux
-	running bool
+	srv *http.Server
+	mux *chi.Mux
+	//FIXME use atomic
+	running atomic.Bool
 }
 
-func NewHTTPServer(addr string) HTTPServer {
+func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTTPServer {
 	mux := chi.NewRouter()
 	mux.Use(middleware.Recoverer)
-	mux.Use(middleware.Logger)
 
-	return HTTPServer{
+	for _, m := range options {
+		mux.Use(m)
+	}
+
+	srv := &HTTPServer{
 		srv: &http.Server{
 			Addr:         addr,
 			ReadTimeout:  10 * time.Second,
@@ -30,11 +33,14 @@ func NewHTTPServer(addr string) HTTPServer {
 			IdleTimeout:  60 * time.Second,
 		},
 		mux:     mux,
-		stateMx: &sync.RWMutex{},
+		running: atomic.Bool{},
 	}
+	srv.running.Store(false)
+
+	return srv
 }
 
-func (s *HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.HandlerFunc) {
+func (s *HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.Handler) {
 	s.mux.Route(path, func(r chi.Router) {
 		if len(methods) > 0 {
 			r.Use(allowedMethods(methods...))
@@ -43,23 +49,15 @@ func (s *HTTPServer) Register(path string, methods []string, contentTypes []stri
 		if len(contentTypes) > 0 {
 			r.Use(allowedContentType(contentTypes...))
 		}
-
-		r.HandleFunc("/*", handler)
+		r.Handle("/", handler)
 	})
 }
 
 func (s *HTTPServer) Start() error {
 	s.srv.Handler = s.mux
+	s.running.Swap(true)
 
-	s.stateMx.Lock()
-	s.running = true
-	s.stateMx.Unlock()
-
-	defer func() {
-		s.stateMx.Lock()
-		s.running = false
-		s.stateMx.Unlock()
-	}()
+	defer s.running.Swap(false)
 
 	err := s.srv.ListenAndServe()
 
@@ -71,17 +69,13 @@ func (s *HTTPServer) Start() error {
 }
 
 func (s *HTTPServer) IsRunning() bool {
-	s.stateMx.Lock()
-	defer s.stateMx.Unlock()
-	return s.running
+	v := s.running.Load()
+	return v
 }
 
 func (s *HTTPServer) Stop() error {
 	if err := s.srv.Shutdown(context.Background()); err != nil {
-		s.stateMx.Lock()
-		s.running = false
-		s.stateMx.Unlock()
-
+		s.running.Swap(false)
 		return err
 	}
 	return nil
