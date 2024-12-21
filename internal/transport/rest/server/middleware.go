@@ -79,6 +79,16 @@ func WithLogger(logger *zap.SugaredLogger) func(h http.Handler) http.Handler {
 					zap.Duration("delay", time.Since(start)),
 					zap.Int("size", ww.BytesWritten()),
 				)
+
+				respHead := w.Header().Clone()
+				reqHead := r.Header.Clone()
+
+				logger.Debugw(
+					"headers",
+					zap.Any("request", reqHead),
+					"response", zap.Any("response", respHead),
+				)
+
 			}()
 			next.ServeHTTP(ww, r)
 		}
