@@ -20,7 +20,7 @@ func NewHTTPJsonSender(addr string) (HTTPJsonSender, error) {
 	if err != nil {
 		return HTTPJsonSender{}, err
 	}
-	return HTTPJsonSender{URL: u, httpClient: newClient(true)}, nil
+	return HTTPJsonSender{URL: u, httpClient: newClient(false)}, nil
 }
 
 func (s HTTPJsonSender) Send(value metric.Metric) error {
