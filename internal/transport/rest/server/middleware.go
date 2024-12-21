@@ -86,7 +86,7 @@ func WithLogger(logger *zap.SugaredLogger) func(h http.Handler) http.Handler {
 				logger.Debugw(
 					"headers",
 					zap.Any("request", reqHead),
-					"response", zap.Any("response", respHead),
+					zap.Any("response", respHead),
 				)
 
 			}()
