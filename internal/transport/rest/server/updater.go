@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"bytes"
+	"compress/gzip"
 	"io"
 	"net/http"
 
@@ -43,14 +45,18 @@ func handleUpdateAsTextJSON(svc service.StorageService, r *http.Request, logger 
 		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
 	}
 	content, err := io.ReadAll(r.Body)
-
 	if err != nil {
 		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
-	logger.Debugw("request body", "url", r.URL.String(), "body", string(content))
+	decompressedContent, err := unpackContent(content, r.Header.Get("Content-Encoding") == "gzip")
+	if err != nil {
+		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+	}
 
-	m, err := metric.FromJSON(content)
+	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
+
+	m, err := metric.FromJSON(decompressedContent)
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
@@ -68,4 +74,23 @@ func handleUpdateAsTextJSON(svc service.StorageService, r *http.Request, logger 
 
 	updContent, err := updMetric.ToJSON()
 	return NewJSONResponse(updContent, err)
+}
+
+func unpackContent(content []byte, isCompressed bool) ([]byte, error) {
+	if !isCompressed {
+		return content, nil
+	}
+
+	rd := bytes.NewReader(content)
+	grd, err := gzip.NewReader(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	defer grd.Close()
+	if c, err := io.ReadAll(grd); err == io.EOF {
+		return c, nil
+	} else {
+		return c, err
+	}
 }

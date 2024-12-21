@@ -20,6 +20,10 @@ type runConfig struct {
 	address string
 }
 
+func (c runConfig) String() string {
+	return fmt.Sprintf("address: %s", c.address)
+}
+
 func getConfig() runConfig {
 	address := flag.String("a", "localhost:8080", "address for server")
 
@@ -122,7 +126,7 @@ func createLogger() *zap.Logger {
 }
 
 func createAndPreparingServer(addr string, logger *zap.SugaredLogger) *rest.HTTPServer {
-	server := rest.NewHTTPServer(addr, rest.WithLogger(logger))
+	server := rest.NewHTTPServer(addr, rest.WithLogger(logger), rest.WithCompress("text/html", "application/json"))
 	svc := createRepositoryService()
 
 	registerHandlers(server, svc, logger)

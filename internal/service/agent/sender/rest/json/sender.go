@@ -36,6 +36,8 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return err

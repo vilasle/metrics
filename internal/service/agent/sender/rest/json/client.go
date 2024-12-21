@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/vilasle/metrics/internal/compress"
 )
 
 type httpClient struct {
@@ -16,27 +18,39 @@ type httpClient struct {
 }
 
 func (h httpClient) NewRequest(method, url string, body []byte) (*http.Request, error) {
+	if body == nil {
+		return http.NewRequest(method, url, nil)
+	}
+
+	var (
+		rd      io.Reader
+		headers = make(map[string]string)
+		req     *http.Request
+		err     error
+	)
+
 	if h.useCompression {
-		encoder := h.encodersPool.Get().(gzip.Writer)
-		_, err := encoder.Write(body)
-		if err != nil {
-			panic(err)
-		}
-		err = encoder.Close()
-		if err != nil {
-			panic(err)
-		}
-		
-		
-		req, err := http.NewRequest(method, url, bytes.NewReader(newBody))
+		wrt := h.encodersPool.Get().(compress.CompressorWriter)
+
+		_, err := wrt.Write(body)
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Content-Encoding", "gzip")
-		return req, nil
+		rd = bytes.NewReader(wrt.Bytes())
+		headers["Content-Encoding"] = "gzip"
+
+		wrt.Reset()
+		h.encodersPool.Put(wrt)
+	} else {
+		rd = bytes.NewReader(body)
 	}
 
-	return http.NewRequest(method, url, bytes.NewReader(body))
+	if req, err = http.NewRequest(method, url, rd); err == nil {
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+	}
+	return req, err
 }
 
 func newClient(useCompression bool) httpClient {
@@ -45,7 +59,7 @@ func newClient(useCompression bool) httpClient {
 		useCompression: useCompression,
 		encodersPool: &sync.Pool{
 			New: func() interface{} {
-				return encoderGzip(io.Discard, gzip.BestCompression)
+				return compress.NewCompressor(gzip.BestCompression)
 			},
 		},
 	}
@@ -53,17 +67,4 @@ func newClient(useCompression bool) httpClient {
 
 func (h httpClient) Do(req *http.Request) (*http.Response, error) {
 	return h.client.Do(req)
-}
-
-func encoderGzip(w io.Writer, level int) io.Writer {
-	gw, err := gzip.NewWriterLevel(w, level)
-	if err != nil {
-		return nil
-	}
-	return gw
-}
-
-func compress(body []byte) ([]byte, error) {
-
-	return body, nil
 }

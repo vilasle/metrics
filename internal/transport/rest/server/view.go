@@ -64,7 +64,8 @@ auto-tests use filled Content-Type header only for iter1
 that's why handle any Content-Type as text/plain with exception of application/json
 */
 func showSpecificMetric(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
-	switch r.Header.Get("Content-Type") {
+	contentType := r.Header.Get("Content-Type")
+	switch contentType {
 	case "application/json":
 		return handleDisplayMetricAsTextJSON(svc, r, logger)
 	default:
@@ -97,9 +98,14 @@ func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request, 
 		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
-	logger.Debugw("request body", "url", r.URL.String(), "body", string(content))
+	decompressedContent, err := unpackContent(content, r.Header.Get("Content-Encoding") == "gzip")
+	if err != nil {
+		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+	}
 
-	m, err := metric.FromJSON(content)
+	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
+
+	m, err := metric.FromJSON(decompressedContent)
 	if err != nil && !errors.Is(err, metric.ErrNotFilledValue) {
 		return NewTextResponse(emptyBody(), err)
 	}

@@ -1,11 +1,14 @@
 package rest
 
 import (
+	"compress/gzip"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/vilasle/metrics/internal/compress"
 	"go.uber.org/zap"
 )
 
@@ -81,4 +84,73 @@ func WithLogger(logger *zap.SugaredLogger) func(h http.Handler) http.Handler {
 		}
 		return http.HandlerFunc(fn)
 	}
+}
+
+func WithCompress(types ...string) func(h http.Handler) http.Handler {
+	poll := &sync.Pool{
+		New: func() interface{} {
+			return compress.NewCompressor(gzip.BestCompression)
+		},
+	}
+
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			compressAccept := r.Header.Get("Accept-Encoding")
+			if !strings.Contains(compressAccept, "gzip") {
+				next.ServeHTTP(w, r)
+				return
+			}
+			cw := poll.Get().(compress.CompressorWriter)
+			defer poll.Put(cw)
+
+			crw := &compressedResponseWriter{
+				ResponseWriter: w,
+				w:              cw,
+				types:          types,
+			}
+			defer crw.Close()
+
+			w.Header().Set("Content-Encoding", "gzip")
+			next.ServeHTTP(crw, r)
+		}
+		return http.HandlerFunc(fn)
+	}
+
+}
+
+type compressedResponseWriter struct {
+	http.ResponseWriter
+	w     compress.CompressorWriter
+	types []string
+}
+
+func (cw *compressedResponseWriter) Write(b []byte) (int, error) {
+	if cw.w == nil {
+		cw.writeAsIs(b)
+	}
+
+	if len(cw.types) == 0 {
+		return cw.w.Write(b)
+	}
+
+	for _, t := range cw.types {
+		if strings.Contains(cw.Header().Get("Content-Type"), t) {
+			return cw.w.Write(b)
+		}
+	}
+
+	return cw.writeAsIs(b)
+}
+
+func (cw *compressedResponseWriter) writeAsIs(b []byte) (int, error) {
+	cw.ResponseWriter.Header().Del("Content-Encoding")
+	return cw.ResponseWriter.Write(b)
+}
+
+func (cw *compressedResponseWriter) Close() error {
+	if cw.w == nil {
+		return nil
+	}
+	_, err := cw.ResponseWriter.Write(cw.w.Bytes())
+	return err
 }
