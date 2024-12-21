@@ -126,7 +126,7 @@ func createLogger() *zap.Logger {
 }
 
 func createAndPreparingServer(addr string, logger *zap.SugaredLogger) *rest.HTTPServer {
-	server := rest.NewHTTPServer(addr, rest.WithLogger(logger), rest.WithCompress())
+	server := rest.NewHTTPServer(addr, rest.WithLogger(logger), rest.WithCompress("application/json", "text/html"))
 	svc := createRepositoryService()
 
 	registerHandlers(server, svc, logger)
