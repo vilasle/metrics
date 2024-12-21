@@ -2,6 +2,7 @@ package collector
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"runtime"
 
@@ -63,8 +64,15 @@ func (c *RuntimeCollector) Collect() {
 		}
 
 		switch fld.Kind() {
-		case reflect.Uint64:
+		case reflect.Uint64,
+			reflect.Uint32,
+			reflect.Uint16,
+			reflect.Uint8:
 			c.gauges[v] = metric.NewGaugeMetric(v, float64(fld.Uint()))
+		case reflect.Float32, reflect.Float64:
+			c.gauges[v] = metric.NewGaugeMetric(v, fld.Float())
+		default:
+			fmt.Printf("unsupported type %s\n", fld.Kind().String())
 		}
 	}
 	c.execEvents()

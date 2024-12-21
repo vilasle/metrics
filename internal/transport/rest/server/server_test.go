@@ -2,7 +2,7 @@ package rest
 
 import (
 	"net/http"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,7 +48,7 @@ func TestHttpServer_StartStop(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewHTTPServer(":8080")
-			s.Register("/test", []string{}, []string{}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){}))
+			s.Register("/test", []string{}, []string{}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 
 			go func() {
 				if err := s.Start(); (err != nil) != tt.wantErr {
@@ -113,6 +113,7 @@ func TestHttpServer_IsRunning(t *testing.T) {
 		mux     *chi.Mux
 		running bool
 	}
+
 	tests := []struct {
 		name   string
 		fields fields
@@ -138,9 +139,11 @@ func TestHttpServer_IsRunning(t *testing.T) {
 			s := HTTPServer{
 				srv:     tt.fields.srv,
 				mux:     tt.fields.mux,
-				running: tt.fields.running,
-				stateMx: &sync.RWMutex{},
+				running: atomic.Bool{},
 			}
+
+			s.running.Store(tt.fields.running)
+
 			if got := s.IsRunning(); got != tt.want {
 				t.Errorf("HttpServer.IsRunning() = %v, want %v", got, tt.want)
 			}
