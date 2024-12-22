@@ -1,4 +1,4 @@
-package rest
+package middleware
 
 import (
 	"net/http"
@@ -63,7 +63,7 @@ func Test_allowedMethods(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fn := allowedMethods(tt.args.allowedMethods...)
+			fn := AllowedMethods(tt.args.allowedMethods...)
 			middleware := fn(tt.args.handler)
 
 			rr := httptest.NewRecorder()
@@ -132,7 +132,7 @@ func Test_allowedContentType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fn := allowedContentType(tt.args.contentTypes...)
+			fn := AllowedContentType(tt.args.contentTypes...)
 			middleware := fn(tt.args.handler)
 
 			rr := httptest.NewRecorder()

@@ -1,4 +1,4 @@
-package rest
+package middleware
 
 import (
 	"compress/gzip"
@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func allowedMethods(method ...string) func(h http.Handler) http.Handler {
+func AllowedMethods(method ...string) func(h http.Handler) http.Handler {
 	allowedMethods := make(map[string]struct{}, len(method))
 	for _, m := range method {
 		allowedMethods[strings.ToUpper(strings.TrimSpace(m))] = struct{}{}
@@ -36,7 +36,7 @@ func allowedMethods(method ...string) func(h http.Handler) http.Handler {
 }
 
 // copy past from chi middleware but chi exec this if content-length is more than 0, but I want exec it every request
-func allowedContentType(contentTypes ...string) func(h http.Handler) http.Handler {
+func AllowedContentType(contentTypes ...string) func(h http.Handler) http.Handler {
 	allowedContentTypes := make(map[string]struct{}, len(contentTypes))
 	for _, ctype := range contentTypes {
 		allowedContentTypes[strings.TrimSpace(strings.ToLower(ctype))] = struct{}{}

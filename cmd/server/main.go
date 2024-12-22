@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
+	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
 
@@ -126,9 +127,10 @@ func createLogger() *zap.Logger {
 }
 
 func createAndPreparingServer(addr string, logger *zap.SugaredLogger) *rest.HTTPServer {
-	// server := rest.NewHTTPServer(addr, rest.WithLogger(logger), rest.WithCompress("application/json", "text/html"))
-	server := rest.NewHTTPServer(addr, rest.WithLogger(logger))
-	
+	server := rest.NewHTTPServer(addr,
+		mdw.WithLogger(logger),
+		mdw.Compress("application/json", "text/html"))
+
 	svc := createRepositoryService()
 
 	registerHandlers(server, svc, logger)
