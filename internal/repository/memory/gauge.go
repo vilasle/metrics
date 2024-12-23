@@ -46,3 +46,15 @@ func (m *MetricGaugeMemoryRepository[T]) All() (map[string]model.Gauge, error) {
 
 	return r, nil
 }
+
+func (m *MetricGaugeMemoryRepository[T]) AllAsIs() (map[string][]model.Gauge, error) {
+	m.mx.RLock()
+	defer m.mx.RUnlock()
+
+	r := make(map[string][]model.Gauge, len(m.metrics))
+	for k, v := range m.metrics {
+		r[k] = []model.Gauge{v}
+	}
+
+	return r, nil
+}

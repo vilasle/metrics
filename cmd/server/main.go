@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
+	"github.com/vilasle/metrics/internal/repository/memory/dumper"
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
@@ -114,7 +115,14 @@ func createRepositoryService() *service.StorageService {
 		memory.NewMetricGaugeMemoryRepository(),
 		memory.NewMetricCounterMemoryRepository()
 
-	svc := service.NewStorageService(gaugeStorage, counterStorage)
+	fs, err := dumper.NewFileStream("storage")
+	if err != nil {
+		panic(err)
+	}
+	
+	counterDumper := dumper.NewCounterDumper(counterStorage, false, (time.Second * 5), true, fs)
+
+	svc := service.NewStorageService(gaugeStorage, counterDumper)
 	return svc
 }
 
