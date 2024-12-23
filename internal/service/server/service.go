@@ -102,7 +102,7 @@ func (s StorageService) getCounterMetrics() (map[string]metric.Metric, error) {
 func (s StorageService) AllMetrics() ([]metric.Metric, error) {
 	errs := make([]error, 0, 2)
 	result := make([]metric.Metric, 0)
-	
+
 	if metrics, err := s.getGaugeMetrics(); err == nil {
 		result = append(result, asSlice(metrics)...)
 	} else {
@@ -115,6 +115,39 @@ func (s StorageService) AllMetrics() ([]metric.Metric, error) {
 		errs = append(errs, err)
 	}
 	return result, errors.Join(errs...)
+}
+
+func (s StorageService) AllMetricsAsIs() ([]metric.Metric, error) {
+	errs := make([]error, 0, 2)
+	result := make([]metric.Metric, 0)
+
+	if metrics, err := s.getGaugeMetrics(); err == nil {
+		result = append(result, asSlice(metrics)...)
+	} else {
+		errs = append(errs, err)
+	}
+	if metrics, err := s.getCounterMetricsAsIs(); err == nil {
+		result = append(result, metrics...)
+	} else {
+		errs = append(errs, err)
+	}
+	return result, errors.Join(errs...)
+
+}
+
+func (s StorageService) getCounterMetricsAsIs() ([]metric.Metric, error) {
+	metrics, err := s.counterStorage.AllAsIs()
+	if err != nil {
+		return []metric.Metric{}, err
+	}
+
+	result := make([]metric.Metric, 0)
+	for name, value := range metrics {
+		for _, c := range value {
+			result = append(result, metric.NewCounterMetric(name, int64(c)))
+		}
+	}
+	return result, nil
 }
 
 func (s StorageService) save(data metric.RawMetric) error {

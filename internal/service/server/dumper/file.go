@@ -2,14 +2,13 @@ package dumper
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"sync"
 )
 
 type FileStream struct {
-	fd  *os.File
-	mx  *sync.Mutex
+	fd *os.File
+	mx *sync.Mutex
 }
 
 func NewFileStream(path string) (*FileStream, error) {
@@ -18,8 +17,8 @@ func NewFileStream(path string) (*FileStream, error) {
 		return nil, err
 	}
 	return &FileStream{
-		fd:  fd,
-		mx:  &sync.Mutex{},
+		fd: fd,
+		mx: &sync.Mutex{},
 	}, nil
 }
 
@@ -33,11 +32,9 @@ func (f *FileStream) Rewrite(b []byte) (int, error) {
 	f.mx.Lock()
 	defer f.mx.Unlock()
 
-	err := f.fd.Truncate(0)
-	if err != nil {
-		fmt.Println(err)
+	if err := f.fd.Truncate(0); err != nil {
+		return 0, err
 	}
-
 	return f.fd.Write(b)
 }
 
@@ -56,6 +53,10 @@ func (f *FileStream) ScanAll() ([]string, error) {
 	}
 	f.fd.Seek(0, 0)
 	return rs, sc.Err()
+}
+
+func (f *FileStream) Clear() error {
+	return f.fd.Truncate(0)
 }
 
 func (f *FileStream) Close() error {

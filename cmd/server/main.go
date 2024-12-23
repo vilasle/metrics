@@ -8,12 +8,14 @@ import (
 	"os/signal"
 	"time"
 
-	service "github.com/vilasle/metrics/internal/service/server"
+	"github.com/vilasle/metrics/internal/service"
+	srvSvc "github.com/vilasle/metrics/internal/service/server"
+	"github.com/vilasle/metrics/internal/service/server/dumper"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
-	"github.com/vilasle/metrics/internal/repository/memory/dumper"
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
@@ -110,7 +112,7 @@ func subscribeToStopSignals() chan os.Signal {
 	return stop
 }
 
-func createRepositoryService() *service.StorageService {
+func createRepositoryService() service.StorageService {
 	gaugeStorage, counterStorage :=
 		memory.NewMetricGaugeMemoryRepository(),
 		memory.NewMetricCounterMemoryRepository()
@@ -119,11 +121,14 @@ func createRepositoryService() *service.StorageService {
 	if err != nil {
 		panic(err)
 	}
-	
-	counterDumper := dumper.NewCounterDumper(counterStorage, false, (time.Second * 5), true, fs)
 
-	svc := service.NewStorageService(gaugeStorage, counterDumper)
-	return svc
+	svc := srvSvc.NewStorageService(gaugeStorage, counterStorage)
+	svcDumper, err := dumper.NewFileDumper(svc, fs, true, (time.Second * 5))
+	if err != nil {
+		panic(err)
+	}
+
+	return svcDumper
 }
 
 func createLogger() *zap.Logger {
@@ -145,7 +150,7 @@ func createAndPreparingServer(addr string, logger *zap.SugaredLogger) *rest.HTTP
 	return server
 }
 
-func registerHandlers(srv *rest.HTTPServer, svc *service.StorageService, logger *zap.SugaredLogger) {
+func registerHandlers(srv *rest.HTTPServer, svc service.StorageService, logger *zap.SugaredLogger) {
 	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc, logger))
 	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc, logger))
 	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc, logger))
