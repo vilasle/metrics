@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"github.com/vilasle/metrics/internal/service"
@@ -21,15 +23,22 @@ import (
 )
 
 type runConfig struct {
-	address string
+	address      string
+	dumpFilePath string
+	dumpInterval int64
+	restore      bool
 }
 
 func (c runConfig) String() string {
-	return fmt.Sprintf("address: %s", c.address)
+	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t",
+		c.address, c.dumpFilePath, c.dumpInterval, c.restore)
 }
 
 func getConfig() runConfig {
 	address := flag.String("a", "localhost:8080", "address for server")
+	storageInternal := flag.Int64("i", 300, "dumping timeout")
+	dumpFile := flag.String("f", "metrics", "dump file")
+	restore := flag.Bool("r", true, "need to restore metrics from dump")
 
 	flag.Parse()
 
@@ -38,8 +47,30 @@ func getConfig() runConfig {
 		*address = envAddress
 	}
 
+	envInternal := os.Getenv("STORAGE_INTERNAL")
+	if envInternal != "" {
+		if v, err := strconv.ParseInt(envInternal, 10, 64); err != nil {
+			*storageInternal = v
+		}
+	}
+
+	envDumpFile := os.Getenv("FILE_STORAGE_PATH")
+	if envDumpFile != "" {
+		*dumpFile = envDumpFile
+	}
+
+	envRestore := os.Getenv("RESTORE")
+	if envRestore != "" {
+		if v, err := strconv.ParseBool(envRestore); err != nil {
+			*restore = v
+		}
+	}
+
 	return runConfig{
-		address: *address,
+		address:      *address,
+		restore:      *restore,
+		dumpFilePath: *dumpFile,
+		dumpInterval: *storageInternal,
 	}
 }
 
@@ -55,7 +86,7 @@ func main() {
 
 	sugar := logger.Sugar()
 
-	server := createAndPreparingServer(conf.address, sugar)
+	server, cancelDumper := createAndPreparingServer(conf, sugar)
 
 	stop := subscribeToStopSignals()
 	defer close(stop)
@@ -70,6 +101,8 @@ func main() {
 	}()
 
 	<-stop
+
+	cancelDumper()
 
 	if !server.IsRunning() {
 		sugar.Error("server stopped unexpected")
@@ -112,23 +145,29 @@ func subscribeToStopSignals() chan os.Signal {
 	return stop
 }
 
-func createRepositoryService() service.StorageService {
+func createRepositoryService(config runConfig) (service.StorageService, context.CancelFunc) {
 	gaugeStorage, counterStorage :=
 		memory.NewMetricGaugeMemoryRepository(),
 		memory.NewMetricCounterMemoryRepository()
 
-	fs, err := dumper.NewFileStream("storage")
+	fs, err := dumper.NewFileStream(config.dumpFilePath)
 	if err != nil {
 		panic(err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	svc := srvSvc.NewStorageService(gaugeStorage, counterStorage)
-	svcDumper, err := dumper.NewFileDumper(svc, fs, true, (time.Second * 5))
-	if err != nil {
+
+	if svcDumper, err := dumper.NewFileDumper(ctx, dumper.Config{
+		Timeout: (time.Second * time.Duration(config.dumpInterval)),
+		Restore: config.restore,
+		Service: svc,
+		Stream:  fs,
+	}); err == nil {
+		return svcDumper, cancel
+	} else {
 		panic(err)
 	}
-
-	return svcDumper
 }
 
 func createLogger() *zap.Logger {
@@ -139,15 +178,15 @@ func createLogger() *zap.Logger {
 	return logger
 }
 
-func createAndPreparingServer(addr string, logger *zap.SugaredLogger) *rest.HTTPServer {
-	server := rest.NewHTTPServer(addr,
+func createAndPreparingServer(config runConfig, logger *zap.SugaredLogger) (*rest.HTTPServer, context.CancelFunc) {
+	server := rest.NewHTTPServer(config.address,
 		mdw.WithLogger(logger),
 		mdw.Compress("application/json", "text/html"))
 
-	svc := createRepositoryService()
+	svc, cancel := createRepositoryService(config)
 
 	registerHandlers(server, svc, logger)
-	return server
+	return server, cancel
 }
 
 func registerHandlers(srv *rest.HTTPServer, svc service.StorageService, logger *zap.SugaredLogger) {

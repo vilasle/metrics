@@ -2,6 +2,7 @@ package dumper
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -16,6 +17,13 @@ const (
 	gaugeId   = "0"
 	counterId = "1"
 )
+
+type Config struct {
+	Timeout time.Duration
+	Restore bool
+	Service service.StorageService
+	Stream  *FileStream
+}
 
 type dumpedMetric struct {
 	metric.RawMetric
@@ -44,15 +52,10 @@ type FileDumper struct {
 	srvMx    *sync.Mutex
 }
 
-func NewFileDumper(
-	svc service.StorageService,
-	fs *FileStream,
-	restore bool,
-	timeout time.Duration) (*FileDumper, error) {
-
+func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	d := &FileDumper{
-		svc:   svc,
-		fs:    fs,
+		svc:   config.Service,
+		fs:    config.Stream,
 		srvMx: &sync.Mutex{},
 	}
 	/*
@@ -71,7 +74,7 @@ func NewFileDumper(
 		and after dumping got file which will match real situation on repository
 	*/
 
-	if restore {
+	if config.Restore {
 		if err := d.restore(); err != nil {
 			return nil, err
 		}
@@ -85,10 +88,10 @@ func NewFileDumper(
 		}
 	}
 
-	if timeout == 0 {
+	if config.Timeout == 0 {
 		d.syncSave = true
 	} else {
-		go d.dumpOnBackground(timeout)
+		go d.dumpOnBackground(ctx, config.Timeout)
 	}
 
 	return d, nil
@@ -146,12 +149,16 @@ func (d *FileDumper) AllMetricsAsIs() ([]metric.Metric, error) {
 	return d.svc.AllMetricsAsIs()
 }
 
-func (d *FileDumper) dumpOnBackground(timeout time.Duration) {
+func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration) {
 	ticker := time.NewTicker(timeout)
 	for {
-		<-ticker.C
-		d.DumpAll()
-		//TODO cancel function
+		select {
+		case <- ticker.C:
+			d.DumpAll()
+		case <- ctx.Done():
+			d.DumpAll()
+			return
+		}
 	}
 }
 
