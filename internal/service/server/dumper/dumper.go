@@ -204,7 +204,7 @@ func (d *FileDumper) restore() error {
 			errs = append(errs, err)
 		}
 	}
-	//FIXME remove
+	//FIXME remove. tu-tu-tu-tu-tu
 	_all, err := d.svc.AllMetricsAsIs()
 	if err != nil {
 		return err
