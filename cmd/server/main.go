@@ -79,6 +79,8 @@ func main() {
 		}
 	}()
 
+	logger.Init(os.Stdout, true)
+
 	defer logger.Close()
 
 	conf := getConfig()
