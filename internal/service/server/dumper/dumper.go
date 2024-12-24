@@ -204,5 +204,20 @@ func (d *FileDumper) restore() error {
 			errs = append(errs, err)
 		}
 	}
+	//FIXME remove
+	_all, err := d.svc.AllMetricsAsIs()
+	if err != nil {
+		return err
+	}
+	logger.Debug("metrics after restoring")
+
+	for _, m := range _all {
+		logger.Debugw("metric", 
+			zap.String("name", m.Name()),
+			zap.String("type", m.Type()),
+			zap.String("value", m.Value()),
+		)
+	}
+	
 	return errors.Join(errs...)
 }

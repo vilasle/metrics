@@ -35,7 +35,7 @@ func (c runConfig) String() string {
 func getConfig() runConfig {
 	address := flag.String("a", "localhost:8080", "address for server")
 	storageInternal := flag.Int64("i", 300, "dumping timeout")
-	dumpFile := flag.String("f", "metrics", "dump file")
+	dumpFile := flag.String("f", "a.metrics", "dump file")
 	restore := flag.Bool("r", true, "need to restore metrics from dump")
 
 	flag.Parse()
