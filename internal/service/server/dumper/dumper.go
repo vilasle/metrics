@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	gaugeID   = "0"
-	counterID = "1"
+	gaugeId   = "0"
+	counterId = "1"
 )
 
 type Config struct {
@@ -181,9 +181,9 @@ func (d *FileDumper) restore() error {
 			continue
 		}
 		name, value := raw[1], raw[2]
-		if strings.HasPrefix(b, gaugeID) {
+		if strings.HasPrefix(b, gaugeId) {
 			rawGauge[name] = metric.NewRawMetric(name, "gauge", value)
-		} else if strings.HasPrefix(b, counterID) {
+		} else if strings.HasPrefix(b, counterId) {
 			rawCounter = append(rawCounter, metric.NewRawMetric(name, "counter", value))
 		}
 	}
