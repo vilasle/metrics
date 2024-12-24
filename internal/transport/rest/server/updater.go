@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service"
-	"go.uber.org/zap"
 )
 
 type rawData struct {
@@ -21,16 +21,16 @@ type rawData struct {
 auto-tests use filled Content-Type header only for iter1
 that's why handle any Content-Type as text/plain with exception of application/json
 */
-func updateMetric(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
+func updateMetric(svc service.StorageService, r *http.Request) Response {
 	switch r.Header.Get("Content-Type") {
 	case "application/json":
-		return handleUpdateAsTextJSON(svc, r, logger)
+		return handleUpdateAsTextJSON(svc, r)
 	default:
-		return handleUpdateAsTextPlain(svc, r, logger)
+		return handleUpdateAsTextPlain(svc, r)
 	}
 }
 
-func handleUpdateAsTextPlain(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
+func handleUpdateAsTextPlain(svc service.StorageService, r *http.Request) Response {
 	raw := getRawDataFromContext(r.Context())
 	logger.Debugw("raw data from url", "raw", raw, "url", r.URL.String())
 	err := svc.Save(
@@ -39,7 +39,7 @@ func handleUpdateAsTextPlain(svc service.StorageService, r *http.Request, logger
 	return NewTextResponse(emptyBody(), err)
 }
 
-func handleUpdateAsTextJSON(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
+func handleUpdateAsTextJSON(svc service.StorageService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
 		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)

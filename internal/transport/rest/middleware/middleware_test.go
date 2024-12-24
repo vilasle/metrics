@@ -7,8 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/vilasle/metrics/internal/logger"
 )
 
 func Test_allowedMethods(t *testing.T) {
@@ -166,11 +165,7 @@ func TestWithLogger(t *testing.T) {
 		content: make([]byte, 0),
 	}
 
-	encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
-	core := zapcore.NewCore(encoder, wrt, zap.InfoLevel)
-
-	logger := zap.New(core, zap.WithCaller(false), zap.AddStacktrace(zap.ErrorLevel))
-	sugar := logger.Sugar()
+	logger.Init(wrt, true)
 
 	type args struct {
 		handler http.Handler
@@ -219,7 +214,7 @@ func TestWithLogger(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fn := WithLogger(sugar)
+			fn := WithLogger()
 			middleware := fn(tt.args.handler)
 
 			rr := httptest.NewRecorder()

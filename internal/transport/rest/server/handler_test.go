@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"regexp"
 	"testing"
 
@@ -12,27 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vilasle/metrics/internal/repository/memory"
 	"github.com/vilasle/metrics/internal/service/server"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
-
-func createLogger() *zap.Logger {
-	encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
-	core := zapcore.NewCore(encoder, os.Stdout, zap.InfoLevel)
-
-	logger := zap.New(core, zap.WithCaller(false), zap.AddStacktrace(zap.ErrorLevel))
-	return logger
-}
 
 func TestUpdateMetricAsPlainText(t *testing.T) {
 	svc := server.NewStorageService(
 		memory.NewMetricGaugeMemoryRepository(),
 		memory.NewMetricCounterMemoryRepository(),
 	)
-
-	logger := createLogger()
-	defer logger.Sync()
-	sugar := logger.Sugar()
 
 	cases := []struct {
 		name        string
@@ -215,7 +200,7 @@ func TestUpdateMetricAsPlainText(t *testing.T) {
 					req.Header.Set("Content-Type", ct)
 				}
 				rr := httptest.NewRecorder()
-				handler := UpdateMetric(svc, sugar)
+				handler := UpdateMetric(svc)
 				handler.ServeHTTP(rr, req)
 				if status := rr.Code; status != tt.statusCode {
 					t.Errorf("handler returned wrong status code: got %v want %v",
@@ -227,10 +212,6 @@ func TestUpdateMetricAsPlainText(t *testing.T) {
 }
 
 func TestDisplayAllMetricsAsHtml(t *testing.T) {
-	logger := createLogger()
-	defer logger.Sync()
-	sugar := logger.Sugar()
-
 	gaugeStorage := memory.NewMetricGaugeMemoryRepository()
 	counterStorage := memory.NewMetricCounterMemoryRepository()
 
@@ -285,7 +266,7 @@ func TestDisplayAllMetricsAsHtml(t *testing.T) {
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
 
 			rr := httptest.NewRecorder()
-			handler := DisplayAllMetrics(tt.svc, sugar)
+			handler := DisplayAllMetrics(tt.svc)
 			handler.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.statusCode, rr.Code)
@@ -318,11 +299,6 @@ func TestDisplayMetricAsPlainText(t *testing.T) {
 		gaugeStorage,
 		counterStorage,
 	)
-
-	logger := createLogger()
-	defer logger.Sync()
-	sugar := logger.Sugar()
-
 
 	testCases := []struct {
 		name        string
@@ -430,7 +406,7 @@ func TestDisplayMetricAsPlainText(t *testing.T) {
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
 
 			rr := httptest.NewRecorder()
-			handler := DisplayMetric(svc, sugar)
+			handler := DisplayMetric(svc)
 			handler.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.statusCode, rr.Code)

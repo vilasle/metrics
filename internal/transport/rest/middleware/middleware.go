@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/vilasle/metrics/internal/compress"
+	"github.com/vilasle/metrics/internal/logger"
 	"go.uber.org/zap"
 )
 
@@ -65,7 +66,7 @@ func AllowedContentType(contentTypes ...string) func(h http.Handler) http.Handle
 }
 
 // TODO hide zap logger under interface Logger
-func WithLogger(logger *zap.SugaredLogger) func(h http.Handler) http.Handler {
+func WithLogger() func(h http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()

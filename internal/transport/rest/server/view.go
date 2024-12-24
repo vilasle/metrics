@@ -8,9 +8,9 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service"
-	"go.uber.org/zap"
 )
 
 func showAllMetrics(svc service.StorageService, r *http.Request) Response {
@@ -63,17 +63,17 @@ func generateViewOfAllMetrics(metrics []metric.Metric) ([]byte, error) {
 auto-tests use filled Content-Type header only for iter1
 that's why handle any Content-Type as text/plain with exception of application/json
 */
-func showSpecificMetric(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
+func showSpecificMetric(svc service.StorageService, r *http.Request) Response {
 	contentType := r.Header.Get("Content-Type")
 	switch contentType {
 	case "application/json":
-		return handleDisplayMetricAsTextJSON(svc, r, logger)
+		return handleDisplayMetricAsTextJSON(svc, r)
 	default:
-		return handleDisplayMetricAsTextPlain(svc, r, logger)
+		return handleDisplayMetricAsTextPlain(svc, r)
 	}
 }
 
-func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
+func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request) Response {
 	raw := getRawDataFromContext(r.Context())
 	logger.Debugw("raw data from url", "url", r.URL.String(), "raw", raw)
 	if notFilled(raw.Name, raw.Kind) {
@@ -87,7 +87,7 @@ func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request,
 	return NewTextResponse([]byte(metric.Value()), nil)
 }
 
-func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request, logger *zap.SugaredLogger) Response {
+func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
 		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)

@@ -163,6 +163,8 @@ func (d *FileDumper) restore() error {
 		return err
 	}
 
+	
+
 	errs := make([]error, 0)
 
 	rawGauge := make(map[string]metric.RawMetric)

@@ -10,12 +10,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/service"
 	srvSvc "github.com/vilasle/metrics/internal/service/server"
 	"github.com/vilasle/metrics/internal/service/server/dumper"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
@@ -81,21 +79,20 @@ func main() {
 		}
 	}()
 
-	conf, logger := getConfig(), createLogger()
-	defer logger.Sync()
+	defer logger.Close()
 
-	sugar := logger.Sugar()
+	conf := getConfig()
 
-	server, cancelDumper := createAndPreparingServer(conf, sugar)
+	server, cancelDumper := createAndPreparingServer(conf)
 
 	stop := subscribeToStopSignals()
 	defer close(stop)
 
-	sugar.Infow("run server", "config", conf)
+	logger.Infow("run server", "config", conf)
 
 	go func() {
 		if err := server.Start(); err != nil {
-			sugar.Errorw("server starting got error", "error", err)
+			logger.Errorw("server starting got error", "error", err)
 		}
 		stop <- os.Interrupt
 	}()
@@ -105,7 +102,7 @@ func main() {
 	cancelDumper()
 
 	if !server.IsRunning() {
-		sugar.Error("server stopped unexpected")
+		logger.Error("server stopped unexpected")
 		os.Exit(1)
 	}
 
@@ -170,31 +167,23 @@ func createRepositoryService(config runConfig) (service.StorageService, context.
 	}
 }
 
-func createLogger() *zap.Logger {
-	encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
-	core := zapcore.NewCore(encoder, os.Stdout, zap.DebugLevel)
-
-	logger := zap.New(core, zap.WithCaller(false), zap.AddStacktrace(zap.ErrorLevel))
-	return logger
-}
-
-func createAndPreparingServer(config runConfig, logger *zap.SugaredLogger) (*rest.HTTPServer, context.CancelFunc) {
+func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
 	server := rest.NewHTTPServer(config.address,
-		mdw.WithLogger(logger),
+		mdw.WithLogger(),
 		mdw.Compress("application/json", "text/html"))
 
 	svc, cancel := createRepositoryService(config)
 
-	registerHandlers(server, svc, logger)
+	registerHandlers(server, svc)
 	return server, cancel
 }
 
-func registerHandlers(srv *rest.HTTPServer, svc service.StorageService, logger *zap.SugaredLogger) {
-	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc, logger))
-	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc, logger))
-	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc, logger))
-	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc, logger))
-	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc, logger))
+func registerHandlers(srv *rest.HTTPServer, svc service.StorageService) {
+	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
+	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
+	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
+	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
 }
 
 func toSlice(it ...string) []string {
