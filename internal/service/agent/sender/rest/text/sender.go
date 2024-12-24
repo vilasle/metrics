@@ -1,4 +1,4 @@
-package rest
+package text
 
 import (
 	"errors"
@@ -8,22 +8,23 @@ import (
 	"time"
 
 	"github.com/vilasle/metrics/internal/metric"
+	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
 
-type HTTPSender struct {
+type HTTPTextSender struct {
 	*url.URL
 	client http.Client
 }
 
-func NewHTTPSender(addr string) (HTTPSender, error) {
+func NewHTTPTextSender(addr string) (HTTPTextSender, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
-		return HTTPSender{}, err
+		return HTTPTextSender{}, err
 	}
-	return HTTPSender{URL: u, client: http.Client{Timeout: time.Second * 5}}, nil
+	return HTTPTextSender{URL: u, client: http.Client{Timeout: time.Second * 5}}, nil
 }
 
-func (s HTTPSender) Send(value metric.Metric) error {
+func (s HTTPTextSender) Send(value metric.Metric) error {
 	u := *s.URL
 	addr := u.JoinPath(value.Type(), value.Name(), value.Value()).String()
 
@@ -43,9 +44,10 @@ func (s HTTPSender) Send(value metric.Metric) error {
 
 	switch statusCode {
 	case http.StatusNotFound:
-		err = errors.Join(ErrWrongMetricName, fmt.Errorf("status code %d", statusCode))
+
+		err = errors.Join(rest.ErrWrongMetricName, fmt.Errorf("status code %d", statusCode))
 	case http.StatusBadRequest:
-		err = errors.Join(ErrWrongMetricTypeOrValue, fmt.Errorf("status code %d", statusCode))
+		err = errors.Join(rest.ErrWrongMetricTypeOrValue, fmt.Errorf("status code %d", statusCode))
 	}
 
 	return err
