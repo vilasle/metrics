@@ -9,8 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -128,6 +130,10 @@ func (d *FileDumper) DumpAll() error {
 		}
 	}
 
+	logger.Debugw(
+		"content on dump before dumping",
+		zap.String("content", buf.String()))
+
 	_, err = d.fs.Rewrite(buf.Bytes())
 	return err
 }
@@ -148,9 +154,9 @@ func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration
 	ticker := time.NewTicker(timeout)
 	for {
 		select {
-		case <- ticker.C:
+		case <-ticker.C:
 			d.DumpAll()
-		case <- ctx.Done():
+		case <-ctx.Done():
 			d.DumpAll()
 			return
 		}
@@ -163,7 +169,9 @@ func (d *FileDumper) restore() error {
 		return err
 	}
 
-	
+	logger.Debugw(
+		"content on dump before restore",
+		zap.Any("dump", all))
 
 	errs := make([]error, 0)
 
