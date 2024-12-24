@@ -209,7 +209,7 @@ func (d *FileDumper) restore() error {
 	if err != nil {
 		return err
 	}
-	logger.Debug("metrics after restoring")
+	logger.Debugf("after restoring there are %d metrics", len(_all))
 
 	for _, m := range _all {
 		logger.Debugw("metric", 
