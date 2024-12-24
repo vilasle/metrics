@@ -13,11 +13,6 @@ import (
 	"github.com/vilasle/metrics/internal/service"
 )
 
-const (
-	gaugeID   = "0"
-	counterID = "1"
-)
-
 type Config struct {
 	Timeout time.Duration
 	Restore bool
@@ -181,9 +176,9 @@ func (d *FileDumper) restore() error {
 			continue
 		}
 		name, value := raw[1], raw[2]
-		if strings.HasPrefix(b, gaugeID) {
+		if strings.HasPrefix(b, "0") {
 			rawGauge[name] = metric.NewRawMetric(name, "gauge", value)
-		} else if strings.HasPrefix(b, counterID) {
+		} else if strings.HasPrefix(b, "1") {
 			rawCounter = append(rawCounter, metric.NewRawMetric(name, "counter", value))
 		}
 	}
