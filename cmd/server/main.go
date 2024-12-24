@@ -101,7 +101,10 @@ func main() {
 
 	<-stop
 
+	logger.Debug("got signal")
+
 	cancelDumper()
+	time.Sleep(time.Second * 3)
 
 	if !server.IsRunning() {
 		logger.Error("server stopped unexpected")

@@ -157,7 +157,10 @@ func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration
 		case <-ticker.C:
 			d.DumpAll()
 		case <-ctx.Done():
+			logger.Debug("got signal. need to dump all metrics")
 			d.DumpAll()
+			logger.Debug("dumping finished")
+			d.fs.Close()
 			return
 		}
 	}
@@ -212,12 +215,12 @@ func (d *FileDumper) restore() error {
 	logger.Debugf("after restoring there are %d metrics", len(_all))
 
 	for _, m := range _all {
-		logger.Debugw("metric", 
+		logger.Debugw("metric",
 			zap.String("name", m.Name()),
 			zap.String("type", m.Type()),
 			zap.String("value", m.Value()),
 		)
 	}
-	
+
 	return errors.Join(errs...)
 }

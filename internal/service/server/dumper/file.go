@@ -60,6 +60,5 @@ func (f *FileStream) Clear() error {
 }
 
 func (f *FileStream) Close() error {
-	//TODO implement it
-	panic("not implemented")
+	return f.fd.Close()
 }
