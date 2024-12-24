@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -20,7 +21,6 @@ func init() {
 	logger = baseLogger.Sugar()
 }
 
-
 type WriterSyncer interface {
 	io.Writer
 	Sync() error
@@ -34,11 +34,17 @@ func Init(wrt WriterSyncer, debug bool) {
 		level = zap.DebugLevel
 	}
 
-	encoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+	config := zap.NewProductionEncoderConfig()
+	config.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	encoder := zapcore.NewJSONEncoder(config)
+
 	core := zapcore.NewCore(encoder, wrt, level)
 
 	baseLogger = zap.New(core, zap.WithCaller(false), zap.AddStacktrace(zap.ErrorLevel))
 	logger = baseLogger.Sugar()
+
+	logger = logger.With("uuid", uuid.New().String())
 }
 
 func Close() {
