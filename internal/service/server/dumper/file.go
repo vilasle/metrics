@@ -12,7 +12,7 @@ type FileStream struct {
 }
 
 func NewFileStream(path string) (*FileStream, error) {
-	fd, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	fd, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}

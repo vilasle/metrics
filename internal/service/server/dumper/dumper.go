@@ -15,6 +15,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	gaugeID   = "0"
+	counterID = "1"
+)
+
 type Config struct {
 	Timeout time.Duration
 	Restore bool
@@ -189,9 +194,9 @@ func (d *FileDumper) restore() error {
 			continue
 		}
 		name, value := raw[1], raw[2]
-		if strings.HasPrefix(b, "0") {
+		if strings.HasPrefix(b, gaugeID) {
 			rawGauge[name] = metric.NewRawMetric(name, "gauge", value)
-		} else if strings.HasPrefix(b, "1") {
+		} else if strings.HasPrefix(b, counterID) {
 			rawCounter = append(rawCounter, metric.NewRawMetric(name, "counter", value))
 		}
 	}
