@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/model"
 	"github.com/vilasle/metrics/internal/repository"
@@ -252,6 +253,209 @@ func TestStorageService_getSaverByType(t *testing.T) {
 			if reflect.TypeOf(got) != reflect.TypeOf(tt.want) {
 				t.Errorf("StorageService.getSaverByType() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestStorageService_AllMetrics(t *testing.T) {
+	type storage struct {
+		gaugeStorage   repository.MetricRepository[model.Gauge]
+		counterStorage repository.MetricRepository[model.Counter]
+	}
+
+	_storage := storage{
+		gaugeStorage:   memory.NewMetricGaugeMemoryRepository(),
+		counterStorage: memory.NewMetricCounterMemoryRepository(),
+	}
+
+	_storage.counterStorage.Save("counter1", 15)
+	_storage.counterStorage.Save("counter2", 55)
+	_storage.counterStorage.Save("counter3", 75)
+	_storage.counterStorage.Save("counter4", 15)
+	_storage.counterStorage.Save("counter5", 145325)
+	_storage.counterStorage.Save("counter6", 43243)
+
+	_storage.gaugeStorage.Save("gauge1", 155.41)
+	_storage.gaugeStorage.Save("gauge2", 535.123)
+	_storage.gaugeStorage.Save("gauge3", 75.5344213)
+	_storage.gaugeStorage.Save("gauge4", 12315.123)
+	_storage.gaugeStorage.Save("gauge5", 1554.131)
+
+	testCases := []struct {
+		name    string
+		args    storage
+		wantLen int
+	}{
+		{
+			name: "Len must equal 11",
+			args: storage{
+				gaugeStorage:   _storage.gaugeStorage,
+				counterStorage: _storage.counterStorage,
+			},
+			wantLen: 11,
+		},
+		{
+			name: "Len must equal 5",
+			args: storage{
+				gaugeStorage:   _storage.gaugeStorage,
+				counterStorage: memory.NewMetricCounterMemoryRepository(),
+			},
+			wantLen: 5,
+		},
+		{
+			name: "Len must equal 6",
+			args: storage{
+				gaugeStorage:   memory.NewMetricGaugeMemoryRepository(),
+				counterStorage: _storage.counterStorage,
+			},
+			wantLen: 6,
+		},
+		{
+			name: "Len must equal 0",
+			args: storage{
+				gaugeStorage:   memory.NewMetricGaugeMemoryRepository(),
+				counterStorage: memory.NewMetricCounterMemoryRepository(),
+			},
+			wantLen: 0,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewStorageService(tt.args.gaugeStorage, tt.args.counterStorage)
+
+			all, err := s.AllMetrics()
+			require.NoError(t, err)
+			assert.Len(t, all, tt.wantLen)
+		})
+	}
+}
+
+func TestStorageService_Get(t *testing.T) {
+	type storage struct {
+		gaugeStorage   repository.MetricRepository[model.Gauge]
+		counterStorage repository.MetricRepository[model.Counter]
+	}
+
+	_storage := storage{
+		gaugeStorage:   memory.NewMetricGaugeMemoryRepository(),
+		counterStorage: memory.NewMetricCounterMemoryRepository(),
+	}
+
+	_storage.counterStorage.Save("counter1", 15)
+	_storage.counterStorage.Save("counter2", 55)
+	_storage.counterStorage.Save("counter3", 75)
+	_storage.counterStorage.Save("counter4", 15)
+	_storage.counterStorage.Save("counter5", 145325)
+	_storage.counterStorage.Save("counter6", 43243)
+
+	_storage.gaugeStorage.Save("gauge1", 155.41)
+	_storage.gaugeStorage.Save("gauge2", 535.123)
+	_storage.gaugeStorage.Save("gauge3", 75.5344213)
+	_storage.gaugeStorage.Save("gauge4", 12315.123)
+	_storage.gaugeStorage.Save("gauge5", 1554.131)
+
+	testCases := []struct {
+		name    string
+		args    storage
+		key     string
+		kind    string
+		wantErr bool
+		value   metric.Metric
+	}{
+		{
+			name: "get existed counter",
+			args: storage{
+				gaugeStorage:   _storage.gaugeStorage,
+				counterStorage: _storage.counterStorage,
+			},
+			key:     "counter1",
+			kind:    keyCounter,
+			wantErr: false,
+			value:   metric.NewCounterMetric("counter1", 15),
+		},
+		{
+			name: "get not existed counter",
+			args: storage{
+				gaugeStorage:   _storage.gaugeStorage,
+				counterStorage: _storage.counterStorage,
+			},
+			key:     "counter543",
+			kind:    keyCounter,
+			wantErr: true,
+			value:   nil,
+		},
+		{
+			name: "get existed gauge",
+			args: storage{
+				gaugeStorage:   _storage.gaugeStorage,
+				counterStorage: _storage.counterStorage,
+			},
+			key:     "gauge3",
+			kind:    keyGauge,
+			wantErr: false,
+			value:   metric.NewGaugeMetric("gauge3", 75.5344213),
+		},
+		{
+			name: "get not existed gauge",
+			args: storage{
+				gaugeStorage:   _storage.gaugeStorage,
+				counterStorage: _storage.counterStorage,
+			},
+			key:     "gauge543",
+			kind:    keyGauge,
+			wantErr: true,
+			value:   nil,
+		},
+		{
+			name: "use unknown kind of metrics",
+			args: storage{
+				gaugeStorage:   _storage.gaugeStorage,
+				counterStorage: _storage.counterStorage,
+			},
+			key:     "test543",
+			kind:    "someMetric",
+			wantErr: true,
+			value:   nil,
+		},
+		{
+			name: "empty counter storage",
+			args: storage{
+				gaugeStorage:   _storage.gaugeStorage,
+				counterStorage: memory.NewMetricCounterMemoryRepository(),
+			},
+			key:     "test543",
+			kind:    keyCounter,
+			wantErr: true,
+			value:   nil,
+		},
+		{
+			name: "empty gauge storage",
+			args: storage{
+				gaugeStorage:   memory.NewMetricGaugeMemoryRepository(),
+				counterStorage: _storage.counterStorage,
+			},
+			key:     "test543",
+			kind:    keyGauge,
+			wantErr: true,
+			value:   nil,
+		},
+		
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewStorageService(tt.args.gaugeStorage, tt.args.counterStorage)
+
+			v, err := s.Get(tt.key, tt.kind)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, v)
+			assert.Equal(t, tt.value, v)
 		})
 	}
 }

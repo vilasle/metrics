@@ -1,25 +1,42 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
-	service "github.com/vilasle/metrics/internal/service/server"
+	"github.com/vilasle/metrics/internal/logger"
+	"github.com/vilasle/metrics/internal/service"
+	srvSvc "github.com/vilasle/metrics/internal/service/server"
+	"github.com/vilasle/metrics/internal/service/server/dumper"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
+	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
 
 type runConfig struct {
-	address string
+	address      string
+	dumpFilePath string
+	dumpInterval int64
+	restore      bool
+}
+
+func (c runConfig) String() string {
+	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t",
+		c.address, c.dumpFilePath, c.dumpInterval, c.restore)
 }
 
 func getConfig() runConfig {
 	address := flag.String("a", "localhost:8080", "address for server")
+	storageInternal := flag.Int64("i", 300, "dumping timeout")
+	dumpFile := flag.String("f", "a.metrics", "dump file")
+	restore := flag.Bool("r", true, "need to restore metrics from dump")
 
 	flag.Parse()
 
@@ -28,8 +45,30 @@ func getConfig() runConfig {
 		*address = envAddress
 	}
 
+	envInternal := os.Getenv("STORAGE_INTERNAL")
+	if envInternal != "" {
+		if v, err := strconv.ParseInt(envInternal, 10, 64); err != nil {
+			*storageInternal = v
+		}
+	}
+
+	envDumpFile := os.Getenv("FILE_STORAGE_PATH")
+	if envDumpFile != "" {
+		*dumpFile = envDumpFile
+	}
+
+	envRestore := os.Getenv("RESTORE")
+	if envRestore != "" {
+		if v, err := strconv.ParseBool(envRestore); err != nil {
+			*restore = v
+		}
+	}
+
 	return runConfig{
-		address: *address,
+		address:      *address,
+		restore:      *restore,
+		dumpFilePath: *dumpFile,
+		dumpInterval: *storageInternal,
 	}
 }
 
@@ -40,68 +79,118 @@ func main() {
 		}
 	}()
 
+	logger.Init(os.Stdout, false)
+
+	defer logger.Close()
+
 	conf := getConfig()
 
-	gaugeStorage := memory.NewMetricGaugeMemoryRepository()
-	counterStorage := memory.NewMetricCounterMemoryRepository()
+	server, cancelDumper := createAndPreparingServer(conf)
 
-	svc := service.NewStorageService(gaugeStorage, counterStorage)
-
-	server := rest.NewHTTPServer(conf.address)
-
-	server.Register("/", methods(), contentTypes(), rest.DisplayAllMetrics(svc))
-	server.Register("/value/{type}/{name}", methods(http.MethodGet), contentTypes(), rest.DisplayMetric(svc))
-	server.Register("/update/{type}/{name}/{value}", methods(http.MethodPost), contentTypes(), rest.UpdateMetric(svc))
-
-	stop := make(chan os.Signal, 1)
+	stop := subscribeToStopSignals()
 	defer close(stop)
 
-	signal.Notify(stop, os.Interrupt)
+	logger.Infow("run server", "config", conf)
 
-	fmt.Printf("run server on %s\n", conf)
 	go func() {
 		if err := server.Start(); err != nil {
-			fmt.Printf("server starting got error, %v", err)
+			logger.Errorw("server starting got error", "error", err)
 		}
 		stop <- os.Interrupt
 	}()
 
 	<-stop
 
+	logger.Debug("got signal")
+
+	cancelDumper()
+	time.Sleep(time.Second * 3)
+
 	if !server.IsRunning() {
-		os.Exit(0)
+		logger.Error("server stopped unexpected")
+		os.Exit(1)
 	}
+
+	shutdown(server)
+}
+
+func shutdown(srv *rest.HTTPServer) {
+	tickForce := time.NewTicker(time.Second * 5)
+	tickKill := time.NewTicker(time.Second * 10)
 
 	stopErr := make(chan error)
 	defer close(stopErr)
 
-	tickForce := time.NewTicker(time.Second * 5)
-	tickKill := time.NewTicker(time.Second * 10)
-
-	go func() { stopErr <- server.Stop() }()
+	go func() { stopErr <- srv.Stop() }()
 
 	for {
 		select {
 		case err := <-stopErr:
 			if err != nil {
 				fmt.Println("server stopped with error", err)
-				server.ForceStop()
+				srv.ForceStop()
 			} else {
 				os.Exit(0)
 			}
 		case <-tickForce.C:
-			go server.ForceStop()
+			go srv.ForceStop()
 		case <-tickKill.C:
 			fmt.Println("server did not stop during expected time")
 			os.Exit(1)
 		}
 	}
-
-}
-func contentTypes(contentType ...string) []string {
-	return contentType
 }
 
-func methods(method ...string) []string {
-	return method
+func subscribeToStopSignals() chan os.Signal {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	return stop
+}
+
+func createRepositoryService(config runConfig) (service.StorageService, context.CancelFunc) {
+	gaugeStorage, counterStorage :=
+		memory.NewMetricGaugeMemoryRepository(),
+		memory.NewMetricCounterMemoryRepository()
+
+	fs, err := dumper.NewFileStream(config.dumpFilePath)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	svc := srvSvc.NewStorageService(gaugeStorage, counterStorage)
+
+	if svcDumper, err := dumper.NewFileDumper(ctx, dumper.Config{
+		Timeout: (time.Second * time.Duration(config.dumpInterval)),
+		Restore: config.restore,
+		Service: svc,
+		Stream:  fs,
+	}); err == nil {
+		return svcDumper, cancel
+	} else {
+		panic(err)
+	}
+}
+
+func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
+	server := rest.NewHTTPServer(config.address,
+		mdw.WithLogger(),
+		mdw.Compress("application/json", "text/html"))
+
+	svc, cancel := createRepositoryService(config)
+
+	registerHandlers(server, svc)
+	return server, cancel
+}
+
+func registerHandlers(srv *rest.HTTPServer, svc service.StorageService) {
+	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
+	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
+	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
+	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+}
+
+func toSlice(it ...string) []string {
+	return it
 }

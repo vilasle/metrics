@@ -50,6 +50,18 @@ func (m *MetricCounterMemoryRepository[T]) All() (map[string]model.Counter, erro
 	return result, nil
 }
 
+func (m *MetricCounterMemoryRepository[T]) AllAsIs() (map[string][]model.Counter, error) {
+	m.mx.RLock()
+	defer m.mx.RUnlock()
+	
+	result := make(map[string][]model.Counter)
+	for k, v := range m.metrics {
+		result[k] = make([]model.Counter, len(v))
+		copy(result[k], v)
+	}
+	return result, nil
+}
+
 func sum(num []model.Counter) model.Counter {
 	s := model.Counter(0)
 	for _, num := range num {
