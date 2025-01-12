@@ -2,195 +2,85 @@ package server
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/vilasle/metrics/internal/metric"
-	"github.com/vilasle/metrics/internal/model"
 	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
 )
 
-const (
-	keyGauge   = "gauge"
-	keyCounter = "counter"
-)
-
-type StorageService struct {
-	gaugeStorage   repository.MetricRepository[model.Gauge]
-	counterStorage repository.MetricRepository[model.Counter]
+type MetricService struct {
+	storage repository.MetricRepository
 }
 
-type metricSaver interface {
-	Save() error
-}
-
-type unknownSaver struct {
-	kind string
-}
-
-func (c unknownSaver) Save() error {
-	return errors.Join(service.ErrUnknownKind, fmt.Errorf("unknown type %s", c.kind))
-}
-
-func NewStorageService(
-	gaugeStorage repository.MetricRepository[model.Gauge],
-	counterStorage repository.MetricRepository[model.Counter]) *StorageService {
-
-	return &StorageService{
-		gaugeStorage:   gaugeStorage,
-		counterStorage: counterStorage,
-	}
-}
-
-func (s StorageService) Save(data metric.RawMetric) error {
-	if err := s.checkInput(data); err != nil {
-		return err
-	}
-	return s.save(data)
-}
-
-func (s StorageService) Get(name string, kind string) (metric.Metric, error) {
-	all, err := s.getAllByKind(kind)
-	if err != nil {
-		return nil, err
-	}
-
-	if metric, ok := all[name]; ok {
-		return metric, nil
-	}
-
-	return nil, service.ErrMetricIsNotExist
-}
-
-func (s StorageService) getAllByKind(kind string) (map[string]metric.Metric, error) {
-	switch kind {
-	case keyGauge:
-		return s.getGaugeMetrics()
-	case keyCounter:
-		return s.getCounterMetrics()
-	default:
-		return map[string]metric.Metric{}, service.ErrUnknownKind
-	}
-}
-
-func (s StorageService) getGaugeMetrics() (map[string]metric.Metric, error) {
-	metrics, err := s.gaugeStorage.All()
-	if err != nil {
-		return map[string]metric.Metric{}, err
-	}
-
-	result := make(map[string]metric.Metric, len(metrics))
-	for name, value := range metrics {
-		result[name] = metric.NewGaugeMetric(name, float64(value))
-	}
-	return result, nil
-}
-
-func (s StorageService) getCounterMetrics() (map[string]metric.Metric, error) {
-	metrics, err := s.counterStorage.All()
-	if err != nil {
-		return map[string]metric.Metric{}, err
-	}
-
-	result := make(map[string]metric.Metric, len(metrics))
-	for name, value := range metrics {
-		result[name] = metric.NewCounterMetric(name, int64(value))
-	}
-	return result, nil
-}
-
-func (s StorageService) AllMetrics() ([]metric.Metric, error) {
-	errs := make([]error, 0, 2)
-	result := make([]metric.Metric, 0)
-
-	if metrics, err := s.getGaugeMetrics(); err == nil {
-		result = append(result, asSlice(metrics)...)
-	} else {
-		errs = append(errs, err)
-	}
-
-	if metrics, err := s.getCounterMetrics(); err == nil {
-		result = append(result, asSlice(metrics)...)
-	} else {
-		errs = append(errs, err)
-	}
-	return result, errors.Join(errs...)
-}
-
-func (s StorageService) AllMetricsAsIs() ([]metric.Metric, error) {
-	errs := make([]error, 0, 2)
-	result := make([]metric.Metric, 0)
-
-	if metrics, err := s.getGaugeMetrics(); err == nil {
-		result = append(result, asSlice(metrics)...)
-	} else {
-		errs = append(errs, err)
-	}
-	if metrics, err := s.getCounterMetricsAsIs(); err == nil {
-		result = append(result, metrics...)
-	} else {
-		errs = append(errs, err)
-	}
-	return result, errors.Join(errs...)
-
-}
-
-func (s StorageService) getCounterMetricsAsIs() ([]metric.Metric, error) {
-	metrics, err := s.counterStorage.AllAsIs()
-	if err != nil {
-		return []metric.Metric{}, err
-	}
-
-	result := make([]metric.Metric, 0)
-	for name, value := range metrics {
-		for _, c := range value {
-			result = append(result, metric.NewCounterMetric(name, int64(c)))
-		}
-	}
-	return result, nil
-}
-
-func (s StorageService) save(data metric.RawMetric) error {
-	saver := s.getSaverByType(data)
-
-	err := saver.Save()
-	if errors.Is(err, metric.ErrConvertingRawValue) {
-		return errors.Join(err, service.ErrInvalidValue)
-	}
-
-	return err
-}
-
-func (s StorageService) checkInput(data metric.RawMetric) error {
-	if data.Kind == "" {
-		return service.ErrEmptyKind
-	}
-
-	if data.Name == "" {
-		return service.ErrEmptyName
-	}
-
-	if data.Value == "" {
-		return service.ErrEmptyValue
+func (s MetricService) Save(entity metric.Metric) error {
+	if err := s.storage.Save(entity); err != nil {
+		return errors.Join(service.ErrStorage, err)
 	}
 	return nil
 }
 
-func (s StorageService) getSaverByType(data metric.RawMetric) metricSaver {
-	switch data.Kind {
-	case keyGauge:
-		return metric.NewGaugeSaver(data, s.gaugeStorage)
-	case keyCounter:
-		return metric.NewCounterSaver(data, s.counterStorage)
-	default:
-		return unknownSaver{kind: data.Kind}
+func (s MetricService) Get(metricType, name string) (metric.Metric, error) {
+	metrics, err := s.storage.Get(metricType, name)
+	if err != nil {
+		return nil, errors.Join(service.ErrStorage, err)
 	}
+	if len(metrics) == 0 {
+		return nil, service.ErrMetricIsNotExist
+	}
+	return metrics[0], nil
 }
 
-func asSlice(m map[string]metric.Metric) []metric.Metric {
-	result := make([]metric.Metric, 0, len(m))
-	for _, v := range m {
-		result = append(result, v)
+func (s MetricService) All() ([]metric.Metric, error) {
+	allGauges, allCounters, err := s.all()
+	if err != nil {
+		return nil, errors.Join(service.ErrStorage, err)
 	}
-	return result
+
+	rs := make([]metric.Metric, 0, len(allGauges)+len(allCounters))
+	rs = append(rs, allGauges...)
+
+	counters := make(map[string][]metric.Metric)
+	for _, m := range allCounters {
+		if _, ok := counters[m.Name()]; !ok {
+			counters[m.Name()] = make([]metric.Metric, 0)
+		}
+		counters[m.Name()] = append(counters[m.Name()], m)
+	}
+
+	for name, metrics := range counters {
+		if v, err := metric.CreateSummedCounter(name, metrics); err == nil {
+			rs = append(rs, v)
+		} else {
+			//TODO wrap error
+			return nil, err
+		}
+	}
+	return rs, nil
+}
+
+func (s MetricService) Stats() ([]metric.Metric, error) {
+	allGauges, allCounters, err := s.all()
+	if err != nil {
+		return nil, errors.Join(service.ErrStorage, err)
+	}
+
+	rs := make([]metric.Metric, 0, len(allGauges)+len(allCounters))
+	rs = append(rs, allGauges...)
+	rs = append(rs, allCounters...)
+
+	return rs, nil
+}
+
+func (s MetricService) all() (gauges, counters []metric.Metric, err error) {
+	allGauges, err := s.storage.Get(metric.TypeGauge)
+	if err != nil {
+		return nil, nil, errors.Join(service.ErrStorage, err)
+	}
+
+	allCounters, err := s.storage.Get(metric.TypeCounter)
+	if err != nil {
+		return nil, nil, errors.Join(service.ErrStorage, err)
+	}
+
+	return allGauges, allCounters, nil
 }
