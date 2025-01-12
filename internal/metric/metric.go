@@ -1,141 +1,58 @@
 package metric
 
 import (
-	"encoding/json"
 	"errors"
-	"strconv"
+	"fmt"
+)
 
-	"github.com/vilasle/metrics/internal/model"
+const (
+	TypeGauge   = "gauge"
+	TypeCounter = "counter"
 )
 
 type Metric interface {
 	Name() string
-	Type() string
 	Value() string
+	Type() string
 	ToJSON() ([]byte, error)
+	SetValue(any) error
+	AddValue(any) error
 }
 
-type GaugeMetric struct {
-	name  string
-	value model.Gauge
-}
-
-func NewGaugeMetric(name string, value float64) GaugeMetric {
-	return GaugeMetric{name: name, value: model.Gauge(value)}
-}
-
-func (m GaugeMetric) Name() string {
-	return m.name
-}
-
-func (m GaugeMetric) Type() string {
-	return m.value.Type()
-}
-
-func (m GaugeMetric) Value() string {
-	return m.value.Value()
-}
-
-func (m GaugeMetric) ToJSON() ([]byte, error) {
-	metric := struct {
-		ID    string  `json:"id"`
-		MType string  `json:"type"`
-		Value float64 `json:"value"`
-	}{
-		ID:    m.name,
-		MType: m.value.Type(),
-		Value: float64(m.value),
-	}
-	return json.Marshal(metric)
-}
-
-func (m *GaugeMetric) SetValue(v float64) {
-	m.value = model.Gauge(v)
-}
-
-type CounterMetric struct {
-	name  string
-	value model.Counter
-}
-
-func NewCounterMetric(name string, value int64) CounterMetric {
-	return CounterMetric{name: name, value: model.Counter(value)}
-}
-
-func (m CounterMetric) Name() string {
-	return m.name
-}
-
-func (m CounterMetric) Value() string {
-	return m.value.Value()
-}
-
-func (m CounterMetric) Type() string {
-	return m.value.Type()
-}
-
-func (m CounterMetric) ToJSON() ([]byte, error) {
-	metric := struct {
-		ID    string `json:"id"`
-		MType string `json:"type"`
-		Delta int64  `json:"delta"`
-	}{
-		ID:    m.name,
-		MType: m.value.Type(),
-		Delta: int64(m.value),
-	}
-	return json.Marshal(metric)
-}
-
-func (m *CounterMetric) Increment() {
-	m.value++
-}
-
-func FromJSON(content []byte) (RawMetric, error) {
-	object := struct {
-		ID    string   `json:"id"`
-		MType string   `json:"type"`
-		Delta *int64   `json:"delta,omitempty"`
-		Value *float64 `json:"value,omitempty"`
-	}{}
-	err := json.Unmarshal(content, &object)
-	if err != nil {
-		return RawMetric{}, errors.Join(ErrInvalidMetric, err)
-	}
-
-	if object.ID == "" {
-		return RawMetric{}, ErrInvalidMetric
-	}
-
-	if object.MType == "gauge" {
-		return newGaugeRawMetric(object.ID, object.Value)
-	} else if object.MType == "counter" {
-		return newCounterRawMetric(object.ID, object.Delta)
-	} else {
-		return RawMetric{}, ErrInvalidMetric
+func NewMetric(name, value, metricType string) (Metric, error) {
+	switch metricType {
+	case TypeGauge:
+		return newGauge(name, value)
+	case TypeCounter:
+		return newCounter(name, value)
+	default:
+		//TODO define error
+		return nil, fmt.Errorf("invalid metric type")
 	}
 }
 
-func newGaugeRawMetric(name string, value *float64) (RawMetric, error) {
-	if value == nil {
-		return RawMetric{Name: name, Kind: "gauge"}, ErrNotFilledValue
+func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
+	var (
+		sum  int64
+		errs = make([]error, 0)
+	)
+
+	errFormat := "metric { name: %s; type: %s; value: %s} is not a counter"
+	for _, c := range metrics {
+		if v, ok := c.(*counter); ok {
+			sum += v.value
+		} else {
+			errs = append(errs, fmt.Errorf(errFormat, c.Name(), c.Type(), c.Value()))
+		}
 	}
 
-	return RawMetric{
-		Name:  name,
-		Kind:  "gauge",
-		Value: strconv.FormatFloat(*value, 'f', -1, 64),
-	}, nil
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return &counter{name: name, value: sum}, nil
 }
 
-func newCounterRawMetric(name string, value *int64) (RawMetric, error) {
-	if value == nil {
-		return RawMetric{Name: name, Kind: "counter"}, ErrNotFilledValue
-	}
-
-	return RawMetric{
-		Name:  name,
-		Kind:  "counter",
-		Value: strconv.FormatInt(*value, 10),
-	}, nil
+func FromJSON() (Metric, error) {
+	//TODO implement it
+	panic("not implemented")
 }
