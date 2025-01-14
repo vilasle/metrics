@@ -52,7 +52,7 @@ func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
 	return &counter{name: name, value: sum}, nil
 }
 
-func FromJSON() (Metric, error) {
+func FromJSON(content []byte) (Metric, error) {
 	//TODO implement it
 	panic("not implemented")
 }

@@ -21,7 +21,7 @@ type rawData struct {
 auto-tests use filled Content-Type header only for iter1
 that's why handle any Content-Type as text/plain with exception of application/json
 */
-func updateMetric(svc service.StorageService, r *http.Request) Response {
+func updateMetric(svc service.MetricService, r *http.Request) Response {
 	switch r.Header.Get("Content-Type") {
 	case "application/json":
 		return handleUpdateAsTextJSON(svc, r)
@@ -30,16 +30,19 @@ func updateMetric(svc service.StorageService, r *http.Request) Response {
 	}
 }
 
-func handleUpdateAsTextPlain(svc service.StorageService, r *http.Request) Response {
+func handleUpdateAsTextPlain(svc service.MetricService, r *http.Request) Response {
 	raw := getRawDataFromContext(r.Context())
 	logger.Debugw("raw data from url", "raw", raw, "url", r.URL.String())
-	err := svc.Save(
-		metric.NewRawMetric(raw.Name, raw.Kind, raw.Value),
-	)
-	return NewTextResponse(emptyBody(), err)
+
+	if m, err := metric.NewMetric(raw.Name, raw.Kind, raw.Value); err == nil {
+		err := svc.Save(m)
+		return NewTextResponse(emptyBody(), err)
+	} else {
+		return NewTextResponse(emptyBody(), err)
+	}
 }
 
-func handleUpdateAsTextJSON(svc service.StorageService, r *http.Request) Response {
+func handleUpdateAsTextJSON(svc service.MetricService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
 		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
@@ -65,7 +68,7 @@ func handleUpdateAsTextJSON(svc service.StorageService, r *http.Request) Respons
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	updMetric, err := svc.Get(m.Name, m.Kind)
+	updMetric, err := svc.Get(m.Type(), m.Name())
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
