@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -20,14 +21,17 @@ type Metric interface {
 }
 
 func NewMetric(name, value, metricType string) (Metric, error) {
+	if err := isNotEmpty(name, value); err != nil {
+		return nil, err
+	}
+
 	switch metricType {
 	case TypeGauge:
 		return newGauge(name, value)
 	case TypeCounter:
 		return newCounter(name, value)
 	default:
-		//TODO define error
-		return nil, fmt.Errorf("invalid metric type")
+		return nil, ErrUnknownMetricType
 	}
 }
 
@@ -53,6 +57,51 @@ func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
 }
 
 func FromJSON(content []byte) (Metric, error) {
-	//TODO implement it
-	panic("not implemented")
+	object := struct {
+		ID    string   `json:"id"`
+		MType string   `json:"type"`
+		Delta *int64   `json:"delta,omitempty"`
+		Value *float64 `json:"value,omitempty"`
+	}{}
+
+	if err := json.Unmarshal(content, &object); err != nil {
+		return nil, errors.Join(ErrInvalidMetric, err)
+	} else if object.ID == "" {
+		return nil, ErrInvalidMetric
+	}
+
+	if object.MType == TypeGauge {
+		return createGaugeMetric(object.ID, object.Value)
+	} else if object.MType == TypeCounter {
+		return createCounterMetric(object.ID, object.Delta)
+	} else {
+		return nil, ErrUnknownMetricType
+	}
+}
+
+func createGaugeMetric(name string, value *float64) (Metric, error) {
+	if value == nil {
+		return nil, ErrNotFilledValue
+	}
+
+	return &gauge{name, *value}, nil
+}
+
+func createCounterMetric(name string, value *int64) (Metric, error) {
+	if value == nil {
+		return nil, ErrNotFilledValue
+	}
+
+	return &counter{name, *value}, nil
+}
+
+func isNotEmpty(name, value string) error {
+	if name == "" {
+		return ErrEmptyName
+	}
+	if value == "" {
+		return ErrEmptyValue
+	}
+
+	return nil
 }

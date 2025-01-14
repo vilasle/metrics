@@ -2,6 +2,7 @@ package metric
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 )
@@ -20,15 +21,14 @@ func (c gauge) Value() string {
 }
 
 func (c gauge) Type() string {
-	return TypeCounter
+	return TypeGauge
 }
 
 func (c *gauge) AddValue(val any) error {
 	if v, ok := val.(float64); ok {
 		c.value += v
 	} else {
-		//TODO define error
-		return fmt.Errorf("value is not int64")
+		return fmt.Errorf("value is %T, expect float64", val)
 	}
 	return nil
 }
@@ -37,8 +37,7 @@ func (c *gauge) SetValue(val any) error {
 	if v, ok := val.(float64); ok {
 		c.value = v
 	} else {
-		//TODO define error
-		return fmt.Errorf("value is not int64")
+		return fmt.Errorf("value is %T, expect float64", val)
 	}
 	return nil
 }
@@ -60,7 +59,6 @@ func newGauge(name string, value string) (*gauge, error) {
 	if v, err := strconv.ParseFloat(value, 64); err == nil {
 		return &gauge{name: name, value: v}, nil
 	} else {
-		//TODO define error
-		return nil, err
+		return nil, errors.Join(err, ErrConvertingRawValue)
 	}
 }

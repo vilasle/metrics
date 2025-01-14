@@ -2,6 +2,7 @@ package metric
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 )
@@ -27,8 +28,7 @@ func (c *counter) AddValue(val any) error {
 	if v, ok := val.(int64); ok {
 		c.value += v
 	} else {
-		//TODO define error
-		return fmt.Errorf("value is not int64")
+		return fmt.Errorf("value is %T, expect int64", val)
 	}
 	return nil
 }
@@ -37,8 +37,7 @@ func (c *counter) SetValue(val any) error {
 	if v, ok := val.(int64); ok {
 		c.value = v
 	} else {
-		//TODO define error
-		return fmt.Errorf("value is not int64")
+		return fmt.Errorf("value is %T, expect int64", val)
 	}
 	return nil
 }
@@ -60,7 +59,6 @@ func newCounter(name string, value string) (*counter, error) {
 	if v, err := strconv.ParseInt(value, 10, 64); err == nil {
 		return &counter{name: name, value: v}, nil
 	} else {
-		//TODO define error
-		return nil, err
+		return nil, errors.Join(err, ErrConvertingRawValue)
 	}
 }
