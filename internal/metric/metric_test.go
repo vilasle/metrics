@@ -198,7 +198,7 @@ func TestNewMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewMetric(tt.args.name, tt.args.value, tt.args.metricType)
+			got, err := ParseMetric(tt.args.name, tt.args.value, tt.args.metricType)
 
 			if tt.wantErr {
 				assert.Error(t, err)

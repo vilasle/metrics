@@ -20,19 +20,27 @@ type Metric interface {
 	AddValue(any) error
 }
 
-func NewMetric(name, value, metricType string) (Metric, error) {
+func ParseMetric(name, value, metricType string) (Metric, error) {
 	if err := isNotEmpty(name, value); err != nil {
 		return nil, err
 	}
 
 	switch metricType {
 	case TypeGauge:
-		return newGauge(name, value)
+		return parseGauge(name, value)
 	case TypeCounter:
-		return newCounter(name, value)
+		return parseCounter(name, value)
 	default:
 		return nil, ErrUnknownMetricType
 	}
+}
+
+func NewGaugeMetric(name string, value float64) (Metric, error) {
+	return &gauge{name: name, value: value}, nil
+}
+
+func NewCounterMetric(name string, value int64) (Metric, error) {
+	return &counter{name: name, value: value}, nil
 }
 
 func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {

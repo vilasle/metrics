@@ -76,11 +76,11 @@ func showSpecificMetric(svc service.MetricService, r *http.Request) Response {
 func handleDisplayMetricAsTextPlain(svc service.MetricService, r *http.Request) Response {
 	raw := getRawDataFromContext(r.Context())
 	logger.Debugw("raw data from url", "url", r.URL.String(), "raw", raw)
-	if notFilled(raw.Name, raw.Kind) {
+	if notFilled(raw.Name, raw.Type) {
 		return NewTextResponse(emptyBody(), ErrEmptyRequiredFields)
 	}
 
-	metric, err := svc.Get(raw.Name, raw.Kind)
+	metric, err := svc.Get(raw.Name, raw.Type)
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}

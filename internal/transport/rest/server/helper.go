@@ -25,7 +25,7 @@ func emptyBody() []byte {
 
 func getRawDataFromContext(ctx context.Context) rawData {
 	return rawData{
-		Kind:  chi.URLParamFromCtx(ctx, "type"),
+		Type:  chi.URLParamFromCtx(ctx, "type"),
 		Name:  chi.URLParamFromCtx(ctx, "name"),
 		Value: chi.URLParamFromCtx(ctx, "value"),
 	}

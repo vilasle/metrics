@@ -55,7 +55,7 @@ func (c counter) ToJSON() ([]byte, error) {
 	return json.Marshal(metric)
 }
 
-func newCounter(name string, value string) (*counter, error) {
+func parseCounter(name string, value string) (*counter, error) {
 	if v, err := strconv.ParseInt(value, 10, 64); err == nil {
 		return &counter{name: name, value: v}, nil
 	} else {

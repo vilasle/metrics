@@ -66,7 +66,7 @@ func (c *RuntimeCollector) Collect() {
 			return
 		}
 
-		if m, err := metric.NewMetric(v, metric.TypeGauge, fld.String()); err == nil {
+		if m, err := metric.ParseMetric(v, metric.TypeGauge, fld.String()); err == nil {
 			c.gauges[v] = m
 		} else {
 			logger.Debug("can not create gauge metric", "name", v, "fld", fld)
@@ -103,7 +103,7 @@ func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 	if v, ok := c.counters[name]; ok {
 		return v
 	} else {
-		m, _ := metric.NewMetric(name, metric.TypeCounter, "0")
+		m, _ := metric.NewCounterMetric(name, 0)
 		return m
 	}
 }
@@ -117,7 +117,7 @@ func (c *RuntimeCollector) GetGaugeValue(name string) (metric.Metric, error) {
 		return v, nil
 	}
 
-	m, err := metric.NewMetric(name, metric.TypeGauge, "0")
+	m, err := metric.NewGaugeMetric(name, 0)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("can not create gauge metric '%s' from zero", name), err)
 	} else {
@@ -130,7 +130,7 @@ func (c *RuntimeCollector) SetGaugeValue(gauge metric.Metric) {
 }
 
 func (c *RuntimeCollector) ResetCounter(counterName string) error {
-	m, err := metric.NewMetric(counterName, metric.TypeCounter, "0")
+	m, err := metric.NewCounterMetric(counterName, 0)
 	if err != nil {
 		return fmt.Errorf("can not create counter metric from zero: %s", err)
 	}

@@ -55,7 +55,7 @@ func (c gauge) ToJSON() ([]byte, error) {
 	return json.Marshal(metric)
 }
 
-func newGauge(name string, value string) (*gauge, error) {
+func parseGauge(name string, value string) (*gauge, error) {
 	if v, err := strconv.ParseFloat(value, 64); err == nil {
 		return &gauge{name: name, value: v}, nil
 	} else {
