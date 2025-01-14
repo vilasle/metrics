@@ -2,7 +2,6 @@ package collector
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"runtime"
 
@@ -103,8 +102,7 @@ func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 	if v, ok := c.counters[name]; ok {
 		return v
 	} else {
-		m, _ := metric.NewCounterMetric(name, 0)
-		return m
+		return metric.NewCounterMetric(name, 0)
 	}
 }
 
@@ -112,28 +110,18 @@ func (c *RuntimeCollector) SetCounterValue(counter metric.Metric) {
 	c.counters[counter.Name()] = counter
 }
 
-func (c *RuntimeCollector) GetGaugeValue(name string) (metric.Metric, error) {
+func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
 	if v, ok := c.gauges[name]; ok {
-		return v, nil
+		return v
 	}
-
-	m, err := metric.NewGaugeMetric(name, 0)
-	if err != nil {
-		return nil, errors.Join(fmt.Errorf("can not create gauge metric '%s' from zero", name), err)
-	} else {
-		return m, nil
-	}
+	return metric.NewGaugeMetric(name, 0)
 }
 
 func (c *RuntimeCollector) SetGaugeValue(gauge metric.Metric) {
 	c.gauges[gauge.Name()] = gauge
 }
 
-func (c *RuntimeCollector) ResetCounter(counterName string) error {
-	m, err := metric.NewCounterMetric(counterName, 0)
-	if err != nil {
-		return fmt.Errorf("can not create counter metric from zero: %s", err)
-	}
+func (c *RuntimeCollector) ResetCounter(counterName string) {
+	m := metric.NewCounterMetric(counterName, 0)
 	c.counters[counterName] = m
-	return nil
 }

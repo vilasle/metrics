@@ -35,12 +35,12 @@ func ParseMetric(name, value, metricType string) (Metric, error) {
 	}
 }
 
-func NewGaugeMetric(name string, value float64) (Metric, error) {
-	return &gauge{name: name, value: value}, nil
+func NewGaugeMetric(name string, value float64) Metric {
+	return &gauge{name: name, value: value}
 }
 
-func NewCounterMetric(name string, value int64) (Metric, error) {
-	return &counter{name: name, value: value}, nil
+func NewCounterMetric(name string, value int64) Metric {
+	return &counter{name: name, value: value}
 }
 
 func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
