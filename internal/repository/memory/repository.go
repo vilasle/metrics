@@ -31,8 +31,7 @@ func (r *MemoryMetricRepository) Save(entity metric.Metric) error {
 }
 
 func (r *MemoryMetricRepository) Get(metricType string, filterName ...string) ([]metric.Metric, error) {
-	//TODO implement it
-	panic("not implemented")
+	return r.getGetter(metricType).get(filterName...)
 }
 
 func (r *MemoryMetricRepository) getSaver(metricType string) saver {
@@ -42,4 +41,13 @@ func (r *MemoryMetricRepository) getSaver(metricType string) saver {
 		return counterSaver{storage: r.counters, mx: r.mxCounter}
 	}
 	return unknownSaver{}
+}
+
+func (r *MemoryMetricRepository) getGetter(metricType string) getter {
+	if metricType == metric.TypeGauge {
+		return gaugeGetter{storage: r.gauges, mx: r.mxGauge}
+	} else if metricType == metric.TypeCounter {
+		return counterGetter{storage: r.counters, mx: r.mxCounter}
+	}
+	return unknownGetter{}
 }
