@@ -2,6 +2,7 @@ package collector
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"runtime"
 
@@ -65,10 +66,16 @@ func (c *RuntimeCollector) Collect() {
 			return
 		}
 
-		if m, err := metric.ParseMetric(v, metric.TypeGauge, fld.String()); err == nil {
-			c.gauges[v] = m
-		} else {
-			logger.Debug("can not create gauge metric", "name", v, "fld", fld)
+		switch fld.Kind() {
+		case reflect.Uint64,
+			reflect.Uint32,
+			reflect.Uint16,
+			reflect.Uint8:
+			c.gauges[v] = metric.NewGaugeMetric(v, float64(fld.Uint()))
+		case reflect.Float32, reflect.Float64:
+			c.gauges[v] = metric.NewGaugeMetric(v, fld.Float())
+		default:
+			fmt.Printf("unsupported type %s\n", fld.Kind().String())
 		}
 	}
 	c.execEvents()
