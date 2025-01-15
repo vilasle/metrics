@@ -16,7 +16,7 @@ import (
 	"github.com/vilasle/metrics/internal/service/server/dumper"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
-	
+
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
@@ -26,11 +26,12 @@ type runConfig struct {
 	dumpFilePath string
 	dumpInterval int64
 	restore      bool
+	databaseDns  string
 }
 
 func (c runConfig) String() string {
-	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t",
-		c.address, c.dumpFilePath, c.dumpInterval, c.restore)
+	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDns: %s",
+		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDns)
 }
 
 func getConfig() runConfig {
@@ -38,6 +39,7 @@ func getConfig() runConfig {
 	storageInternal := flag.Int64("i", 300, "dumping timeout")
 	dumpFile := flag.String("f", "a.metrics", "dump file")
 	restore := flag.Bool("r", true, "need to restore metrics from dump")
+	dbDSN := flag.String("d", "'postgres://user:password@host:port/database?option=value'", "database dns")
 
 	flag.Parse()
 
@@ -65,11 +67,17 @@ func getConfig() runConfig {
 		}
 	}
 
+	envDSN := os.Getenv("DATABASE_DSN")
+	if envDSN != "" {
+		*dbDSN = envDSN
+	}
+
 	return runConfig{
 		address:      *address,
 		restore:      *restore,
 		dumpFilePath: *dumpFile,
 		dumpInterval: *storageInternal,
+		databaseDns:  *dbDSN,
 	}
 }
 

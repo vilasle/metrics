@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"sync"
 
 	"github.com/vilasle/metrics/internal/metric"
@@ -32,6 +33,10 @@ func (r *MemoryMetricRepository) Save(entity metric.Metric) error {
 
 func (r *MemoryMetricRepository) Get(metricType string, filterName ...string) ([]metric.Metric, error) {
 	return r.getGetter(metricType).get(filterName...)
+}
+
+func (r *MemoryMetricRepository) Ping(ctx context.Context) error {
+	return nil
 }
 
 func (r *MemoryMetricRepository) getSaver(metricType string) saver {
