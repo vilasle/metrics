@@ -3,139 +3,124 @@ package metric
 import (
 	"encoding/json"
 	"errors"
-	"strconv"
+	"fmt"
+)
 
-	"github.com/vilasle/metrics/internal/model"
+const (
+	TypeGauge   = "gauge"
+	TypeCounter = "counter"
 )
 
 type Metric interface {
 	Name() string
-	Type() string
 	Value() string
+	Type() string
 	ToJSON() ([]byte, error)
+	SetValue(any) error
+	AddValue(any) error
+	String() string
 }
 
-type GaugeMetric struct {
-	name  string
-	value model.Gauge
-}
-
-func NewGaugeMetric(name string, value float64) GaugeMetric {
-	return GaugeMetric{name: name, value: model.Gauge(value)}
-}
-
-func (m GaugeMetric) Name() string {
-	return m.name
-}
-
-func (m GaugeMetric) Type() string {
-	return m.value.Type()
-}
-
-func (m GaugeMetric) Value() string {
-	return m.value.Value()
-}
-
-func (m GaugeMetric) ToJSON() ([]byte, error) {
-	metric := struct {
-		ID    string  `json:"id"`
-		MType string  `json:"type"`
-		Value float64 `json:"value"`
-	}{
-		ID:    m.name,
-		MType: m.value.Type(),
-		Value: float64(m.value),
+func ParseMetric(name, value, metricType string) (Metric, error) {
+	if err := isNotEmpty(name, value); err != nil {
+		return nil, err
 	}
-	return json.Marshal(metric)
-}
 
-func (m *GaugeMetric) SetValue(v float64) {
-	m.value = model.Gauge(v)
-}
-
-type CounterMetric struct {
-	name  string
-	value model.Counter
-}
-
-func NewCounterMetric(name string, value int64) CounterMetric {
-	return CounterMetric{name: name, value: model.Counter(value)}
-}
-
-func (m CounterMetric) Name() string {
-	return m.name
-}
-
-func (m CounterMetric) Value() string {
-	return m.value.Value()
-}
-
-func (m CounterMetric) Type() string {
-	return m.value.Type()
-}
-
-func (m CounterMetric) ToJSON() ([]byte, error) {
-	metric := struct {
-		ID    string `json:"id"`
-		MType string `json:"type"`
-		Delta int64  `json:"delta"`
-	}{
-		ID:    m.name,
-		MType: m.value.Type(),
-		Delta: int64(m.value),
+	switch metricType {
+	case TypeGauge:
+		return parseGauge(name, value)
+	case TypeCounter:
+		return parseCounter(name, value)
+	default:
+		return nil, ErrUnknownMetricType
 	}
-	return json.Marshal(metric)
 }
 
-func (m *CounterMetric) Increment() {
-	m.value++
+func NewGaugeMetric(name string, value float64) Metric {
+	return &gauge{name: name, value: value}
 }
 
-func FromJSON(content []byte) (RawMetric, error) {
+func NewCounterMetric(name string, value int64) Metric {
+	return &counter{name: name, value: value}
+}
+
+func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
+	var (
+		sum  int64
+		errs = make([]error, 0)
+	)
+
+	errFormat := "metric { name: %s; type: %s; value: %s} is not a counter"
+	for _, c := range metrics {
+		if v, ok := c.(*counter); ok {
+			sum += v.value
+		} else {
+			errs = append(errs, fmt.Errorf(errFormat, c.Name(), c.Type(), c.Value()))
+		}
+	}
+
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return &counter{name: name, value: sum}, nil
+}
+
+func FromJSON(content []byte) (Metric, error) {
 	object := struct {
 		ID    string   `json:"id"`
 		MType string   `json:"type"`
 		Delta *int64   `json:"delta,omitempty"`
 		Value *float64 `json:"value,omitempty"`
 	}{}
-	err := json.Unmarshal(content, &object)
-	if err != nil {
-		return RawMetric{}, errors.Join(ErrInvalidMetric, err)
+
+	if err := json.Unmarshal(content, &object); err != nil {
+		return nil, errors.Join(ErrInvalidMetric, err)
+	} else if object.ID == "" {
+		return nil, ErrInvalidMetric
 	}
 
-	if object.ID == "" {
-		return RawMetric{}, ErrInvalidMetric
-	}
-
-	if object.MType == "gauge" {
-		return newGaugeRawMetric(object.ID, object.Value)
-	} else if object.MType == "counter" {
-		return newCounterRawMetric(object.ID, object.Delta)
+	if object.MType == TypeGauge {
+		return createGaugeMetric(object.ID, object.Value)
+	} else if object.MType == TypeCounter {
+		return createCounterMetric(object.ID, object.Delta)
 	} else {
-		return RawMetric{}, ErrInvalidMetric
+		return nil, ErrUnknownMetricType
 	}
 }
 
-func newGaugeRawMetric(name string, value *float64) (RawMetric, error) {
-	if value == nil {
-		return RawMetric{Name: name, Kind: "gauge"}, ErrNotFilledValue
+func createGaugeMetric(name string, value *float64) (Metric, error) {
+	var (
+		v   float64
+		err error
+	)
+	if value != nil {
+		v = *value
+	} else {
+		err = ErrEmptyValue
 	}
-
-	return RawMetric{
-		Name:  name,
-		Kind:  "gauge",
-		Value: strconv.FormatFloat(*value, 'f', -1, 64),
-	}, nil
+	return &gauge{name, v}, err
 }
 
-func newCounterRawMetric(name string, value *int64) (RawMetric, error) {
-	if value == nil {
-		return RawMetric{Name: name, Kind: "counter"}, ErrNotFilledValue
+func createCounterMetric(name string, value *int64) (Metric, error) {
+	var (
+		v   int64
+		err error
+	)
+	if value != nil {
+		v = *value
+	} else {
+		err = ErrEmptyValue
+	}
+	return &counter{name, v}, err
+}
+
+func isNotEmpty(name, value string) error {
+	if name == "" {
+		return ErrEmptyName
+	}
+	if value == "" {
+		return ErrEmptyValue
 	}
 
-	return RawMetric{
-		Name:  name,
-		Kind:  "counter",
-		Value: strconv.FormatInt(*value, 10),
-	}, nil
+	return nil
 }

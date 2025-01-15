@@ -9,15 +9,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository/memory"
 	"github.com/vilasle/metrics/internal/service/server"
 )
 
 func TestUpdateMetricAsPlainText(t *testing.T) {
-	svc := server.NewStorageService(
-		memory.NewMetricGaugeMemoryRepository(),
-		memory.NewMetricCounterMemoryRepository(),
-	)
+	svc := server.NewMetricService(memory.NewMetricRepository())
 
 	cases := []struct {
 		name        string
@@ -212,20 +210,33 @@ func TestUpdateMetricAsPlainText(t *testing.T) {
 }
 
 func TestDisplayAllMetricsAsHtml(t *testing.T) {
-	gaugeStorage := memory.NewMetricGaugeMemoryRepository()
-	counterStorage := memory.NewMetricCounterMemoryRepository()
+	storage := memory.NewMetricRepository()
 
-	gaugeStorage.Save("gauge1", 1.05)
-	gaugeStorage.Save("gauge2", 1.15)
+	for _, v := range []struct {
+		n string
+		v string
+		t string
+	}{
+		{"gauge1", "1.05", metric.TypeGauge},
+		{"gauge2", "1.15", metric.TypeGauge},
+		{"counter1", "2", metric.TypeCounter},
+		{"counter2", "3", metric.TypeGauge},
+	} {
+		m, err := metric.ParseMetric(v.n, v.v, v.t)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	counterStorage.Save("counter1", 2)
-	counterStorage.Save("counter2", 3)
+		if err := storage.Save(m); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	testCases := []struct {
 		name       string
 		path       string
 		statusCode int
-		svc        *server.StorageService
+		svc        *server.MetricService
 		contents   bool
 		exp        string
 	}{
@@ -233,23 +244,17 @@ func TestDisplayAllMetricsAsHtml(t *testing.T) {
 			name:       "get several metrics",
 			statusCode: http.StatusOK,
 			path:       "/",
-			svc: server.NewStorageService(
-				gaugeStorage,
-				counterStorage,
-			),
-			contents: true,
-			exp:      `<li>.+<\/li>`,
+			svc:        server.NewMetricService(storage),
+			contents:   true,
+			exp:        `<li>.+<\/li>`,
 		},
 		{
 			name:       "empty storage",
 			statusCode: http.StatusOK,
 			path:       "/",
-			svc: server.NewStorageService(
-				memory.NewMetricGaugeMemoryRepository(),
-				memory.NewMetricCounterMemoryRepository(),
-			),
-			contents: false,
-			exp:      `<li>.+<\/li>`,
+			svc:        server.NewMetricService(memory.NewMetricRepository()),
+			contents:   false,
+			exp:        `<li>.+<\/li>`,
 		},
 	}
 
@@ -286,19 +291,28 @@ func TestDisplayAllMetricsAsHtml(t *testing.T) {
 }
 
 func TestDisplayMetricAsPlainText(t *testing.T) {
-	gaugeStorage := memory.NewMetricGaugeMemoryRepository()
-	counterStorage := memory.NewMetricCounterMemoryRepository()
+	storage := memory.NewMetricRepository()
 
-	gaugeStorage.Save("gauge1", 1.05)
-	gaugeStorage.Save("gauge2", 1.15)
+	for _, v := range []struct {
+		n string
+		v string
+		t string
+	}{
+		{"gauge1", "1.05", metric.TypeGauge},
+		{"gauge2", "1.15", metric.TypeGauge},
+		{"counter1", "2", metric.TypeCounter},
+		{"counter2", "3", metric.TypeCounter},
+	} {
+		m, err := metric.ParseMetric(v.n, v.v, v.t)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	counterStorage.Save("counter1", 2)
-	counterStorage.Save("counter2", 3)
-
-	svc := server.NewStorageService(
-		gaugeStorage,
-		counterStorage,
-	)
+		if err := storage.Save(m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	svc := server.NewMetricService(storage)
 
 	testCases := []struct {
 		name        string

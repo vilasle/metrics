@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
+	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
 )
 
 type HTTPServer struct {

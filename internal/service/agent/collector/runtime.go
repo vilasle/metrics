@@ -6,22 +6,23 @@ import (
 	"reflect"
 	"runtime"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 )
 
 type eventHandler func(c *RuntimeCollector)
 
 type RuntimeCollector struct {
-	counters map[string]metric.CounterMetric
-	gauges   map[string]metric.GaugeMetric
+	counters map[string]metric.Metric
+	gauges   map[string]metric.Metric
 	metrics  []string
 	events   []eventHandler
 }
 
 func NewRuntimeCollector() *RuntimeCollector {
 	return &RuntimeCollector{
-		counters: make(map[string]metric.CounterMetric, 0),
-		gauges:   make(map[string]metric.GaugeMetric, 0),
+		counters: make(map[string]metric.Metric, 0),
+		gauges:   make(map[string]metric.Metric, 0),
 		metrics:  make([]string, 0),
 		events:   make([]eventHandler, 0),
 	}
@@ -55,6 +56,8 @@ func (c *RuntimeCollector) Collect() {
 
 	ms := runtime.MemStats{}
 	runtime.ReadMemStats(&ms)
+
+	logger.Debug("get runtime stats", "stat", ms)
 
 	value := reflect.ValueOf(ms)
 	for _, v := range c.metrics {
@@ -102,7 +105,7 @@ func (c *RuntimeCollector) AllMetrics() []metric.Metric {
 	return metrics
 }
 
-func (c *RuntimeCollector) GetCounterValue(name string) metric.CounterMetric {
+func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 	if v, ok := c.counters[name]; ok {
 		return v
 	} else {
@@ -110,23 +113,18 @@ func (c *RuntimeCollector) GetCounterValue(name string) metric.CounterMetric {
 	}
 }
 
-func (c *RuntimeCollector) SetCounterValue(counter metric.CounterMetric) {
-	c.counters[counter.Name()] = counter
-}
-
-func (c *RuntimeCollector) GetGaugeValue(name string) metric.GaugeMetric {
+func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
 	if v, ok := c.gauges[name]; ok {
 		return v
-	} else {
-		return metric.NewGaugeMetric(name, 0)
 	}
+	return metric.NewGaugeMetric(name, 0)
 }
 
-func (c *RuntimeCollector) SetGaugeValue(gauge metric.GaugeMetric) {
+func (c *RuntimeCollector) SetGaugeValue(gauge metric.Metric) {
 	c.gauges[gauge.Name()] = gauge
 }
 
-func (c *RuntimeCollector) ResetCounter(counterName string) error {
-	c.SetCounterValue(metric.NewCounterMetric(counterName, 0))
-	return nil
+func (c *RuntimeCollector) ResetCounter(counterName string) {
+	m := metric.NewCounterMetric(counterName, 0)
+	c.counters[counterName] = m
 }

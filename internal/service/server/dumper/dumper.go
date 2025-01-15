@@ -23,12 +23,12 @@ const (
 type Config struct {
 	Timeout time.Duration
 	Restore bool
-	Service service.StorageService
+	Service service.MetricService
 	Stream  *FileStream
 }
 
 type dumpedMetric struct {
-	metric.RawMetric
+	metric.Metric
 }
 
 var ErrWrongDumpedLine = fmt.Errorf("wrong dumped line")
@@ -36,10 +36,10 @@ var ErrWrongDumpedLine = fmt.Errorf("wrong dumped line")
 func (d dumpedMetric) dumpedContent() []byte {
 	var (
 		kind        = 0
-		name, value = d.Name, d.Value
+		name, value = d.Name(), d.Value()
 	)
 
-	if d.Kind == "counter" {
+	if d.Type() == metric.TypeCounter {
 		kind = 1
 	}
 
@@ -49,7 +49,7 @@ func (d dumpedMetric) dumpedContent() []byte {
 
 type FileDumper struct {
 	fs       *FileStream
-	svc      service.StorageService
+	svc      service.MetricService
 	syncSave bool
 	srvMx    *sync.Mutex
 }
@@ -99,17 +99,17 @@ func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	return d, nil
 }
 
-func (d *FileDumper) Save(m metric.RawMetric) error {
+func (d *FileDumper) Save(entity metric.Metric) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
-	if err := d.svc.Save(m); err != nil {
+	if err := d.svc.Save(entity); err != nil {
 		return err
 	}
 	if !d.syncSave {
 		return nil
 	}
 	//TODO raw metric change in should be interface for wrapping internal struct
-	dm := dumpedMetric{m}
+	dm := dumpedMetric{entity}
 
 	c := dm.dumpedContent()
 	_, err := d.fs.Write(c)
@@ -119,16 +119,20 @@ func (d *FileDumper) Save(m metric.RawMetric) error {
 func (d *FileDumper) DumpAll() error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
-	s, err := d.svc.AllMetricsAsIs()
+	s, err := d.svc.Stats()
 	if err != nil {
 		return err
 	}
 
 	buf := bytes.Buffer{}
 	for _, m := range s {
-		dm := dumpedMetric{
-			metric.NewRawMetric(m.Name(), m.Type(), m.Value()),
+
+		rs, err := metric.ParseMetric(m.Name(), m.Value(), m.Type())
+		if err != nil {
+			return err
 		}
+
+		dm := dumpedMetric{rs}
 		c := dm.dumpedContent()
 		if _, err := buf.Write(c); err != nil {
 			return err
@@ -147,12 +151,12 @@ func (d *FileDumper) Get(name string, kind string) (metric.Metric, error) {
 	return d.svc.Get(name, kind)
 }
 
-func (d *FileDumper) AllMetrics() ([]metric.Metric, error) {
-	return d.svc.AllMetrics()
+func (d *FileDumper) All() ([]metric.Metric, error) {
+	return d.svc.All()
 }
 
-func (d *FileDumper) AllMetricsAsIs() ([]metric.Metric, error) {
-	return d.svc.AllMetricsAsIs()
+func (d *FileDumper) Stats() ([]metric.Metric, error) {
+	return d.svc.Stats()
 }
 
 func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration) {
@@ -183,8 +187,8 @@ func (d *FileDumper) restore() error {
 
 	errs := make([]error, 0)
 
-	rawGauge := make(map[string]metric.RawMetric)
-	rawCounter := make([]metric.RawMetric, 0)
+	rawGauge := make(map[string]metric.Metric)
+	rawCounter := make([]metric.Metric, 0)
 
 	for i, b := range all {
 		raw := strings.Split(b, ";")
@@ -195,9 +199,19 @@ func (d *FileDumper) restore() error {
 		}
 		name, value := raw[1], raw[2]
 		if strings.HasPrefix(b, gaugeID) {
-			rawGauge[name] = metric.NewRawMetric(name, "gauge", value)
+			m, err := metric.ParseMetric(name, value, metric.TypeGauge)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			rawGauge[name] = m
 		} else if strings.HasPrefix(b, counterID) {
-			rawCounter = append(rawCounter, metric.NewRawMetric(name, "counter", value))
+			m, err := metric.ParseMetric(name, value, metric.TypeCounter)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			rawCounter = append(rawCounter, m)
 		}
 	}
 
@@ -212,8 +226,7 @@ func (d *FileDumper) restore() error {
 			errs = append(errs, err)
 		}
 	}
-	//FIXME remove. tu-tu-tu-tu-tu
-	_all, err := d.svc.AllMetricsAsIs()
+	_all, err := d.svc.Stats()
 	if err != nil {
 		return err
 	}

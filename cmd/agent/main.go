@@ -76,9 +76,9 @@ func main() {
 
 	c.RegisterEvent(func(c *collector.RuntimeCollector) {
 		counter := c.GetCounterValue("PollCount")
-		counter.Increment()
-
-		c.SetCounterValue(counter)
+		if err := counter.AddValue(1); err != nil {
+			fmt.Printf("can not add value to counter %v\n", err)
+		}
 	})
 
 	c.RegisterEvent(func(c *collector.RuntimeCollector) {

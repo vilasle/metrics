@@ -76,23 +76,24 @@ func getStatusCode(err error) int {
 }
 
 func errorBadRequest(err error) bool {
-	return errIs(err, 
+	return errIs(err,
 		service.ErrEmptyKind,
 		service.ErrUnknownKind,
-		service.ErrInvalidValue,
 		service.ErrEmptyValue,
 		ErrEmptyRequestBody,
-		metric.ErrInvalidMetric,
-		metric.ErrNotFilledValue,
+		metric.ErrConvertingRawValue,
+		metric.ErrEmptyValue,
+		metric.ErrUnknownMetricType,
 	)
 }
 func errorNotFound(err error) bool {
-	return errIs(err, 
+	return errIs(err,
 		service.ErrEmptyName,
-		service.ErrMetricIsNotExist, 
+		service.ErrMetricIsNotExist,
 		service.ErrUnknownKind,
 		ErrForbiddenResource,
 		ErrEmptyRequiredFields,
+		metric.ErrEmptyName,
 	)
 }
 

@@ -13,13 +13,13 @@ import (
 	"github.com/vilasle/metrics/internal/service"
 )
 
-func showAllMetrics(svc service.StorageService, r *http.Request) Response {
+func showAllMetrics(svc service.MetricService, r *http.Request) Response {
 	//handler catch all unregistered endpoints and block they
 	if r.RequestURI != "/" {
 		return NewTextResponse(emptyBody(), ErrForbiddenResource)
 	}
 
-	metrics, err := svc.AllMetrics()
+	metrics, err := svc.All()
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
@@ -63,7 +63,7 @@ func generateViewOfAllMetrics(metrics []metric.Metric) ([]byte, error) {
 auto-tests use filled Content-Type header only for iter1
 that's why handle any Content-Type as text/plain with exception of application/json
 */
-func showSpecificMetric(svc service.StorageService, r *http.Request) Response {
+func showSpecificMetric(svc service.MetricService, r *http.Request) Response {
 	contentType := r.Header.Get("Content-Type")
 	switch contentType {
 	case "application/json":
@@ -73,21 +73,21 @@ func showSpecificMetric(svc service.StorageService, r *http.Request) Response {
 	}
 }
 
-func handleDisplayMetricAsTextPlain(svc service.StorageService, r *http.Request) Response {
+func handleDisplayMetricAsTextPlain(svc service.MetricService, r *http.Request) Response {
 	raw := getRawDataFromContext(r.Context())
 	logger.Debugw("raw data from url", "url", r.URL.String(), "raw", raw)
-	if notFilled(raw.Name, raw.Kind) {
+	if notFilled(raw.Name, raw.Type) {
 		return NewTextResponse(emptyBody(), ErrEmptyRequiredFields)
 	}
 
-	metric, err := svc.Get(raw.Name, raw.Kind)
+	metric, err := svc.Get(raw.Type, raw.Name)
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
 	return NewTextResponse([]byte(metric.Value()), nil)
 }
 
-func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request) Response {
+func handleDisplayMetricAsTextJSON(svc service.MetricService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
 		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
@@ -106,11 +106,11 @@ func handleDisplayMetricAsTextJSON(svc service.StorageService, r *http.Request) 
 	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
 
 	m, err := metric.FromJSON(decompressedContent)
-	if err != nil && !errors.Is(err, metric.ErrNotFilledValue) {
+	if err != nil && !errors.Is(err, metric.ErrEmptyValue) {
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	metric, err := svc.Get(m.Name, m.Kind)
+	metric, err := svc.Get(m.Type(), m.Name())
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}

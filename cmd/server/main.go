@@ -16,7 +16,8 @@ import (
 	"github.com/vilasle/metrics/internal/service/server/dumper"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
-	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
+	
+	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
 
@@ -79,7 +80,7 @@ func main() {
 		}
 	}()
 
-	logger.Init(os.Stdout, false)
+	logger.Init(os.Stdout, true)
 
 	defer logger.Close()
 
@@ -147,10 +148,8 @@ func subscribeToStopSignals() chan os.Signal {
 	return stop
 }
 
-func createRepositoryService(config runConfig) (service.StorageService, context.CancelFunc) {
-	gaugeStorage, counterStorage :=
-		memory.NewMetricGaugeMemoryRepository(),
-		memory.NewMetricCounterMemoryRepository()
+func createRepositoryService(config runConfig) (service.MetricService, context.CancelFunc) {
+	storage := memory.NewMetricRepository()
 
 	fs, err := dumper.NewFileStream(config.dumpFilePath)
 	if err != nil {
@@ -158,7 +157,7 @@ func createRepositoryService(config runConfig) (service.StorageService, context.
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	svc := srvSvc.NewStorageService(gaugeStorage, counterStorage)
+	svc := srvSvc.NewMetricService(storage)
 
 	if svcDumper, err := dumper.NewFileDumper(ctx, dumper.Config{
 		Timeout: (time.Second * time.Duration(config.dumpInterval)),
@@ -183,7 +182,7 @@ func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.Cance
 	return server, cancel
 }
 
-func registerHandlers(srv *rest.HTTPServer, svc service.StorageService) {
+func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
 	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
 	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))

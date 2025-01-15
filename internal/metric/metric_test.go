@@ -1,383 +1,442 @@
 package metric
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vilasle/metrics/internal/model"
-	"github.com/vilasle/metrics/internal/repository"
-	"github.com/vilasle/metrics/internal/repository/memory"
 )
 
-func Test_gaugeSaver_save(t *testing.T) {
-	type fields struct {
-		metric     RawMetric
-		repository repository.MetricRepository[model.Gauge]
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-	}{
-		{
-			name: "correct value",
-			fields: fields{
-				metric:     NewRawMetric("test", "gauge", "1234"),
-				repository: memory.NewMetricGaugeMemoryRepository(),
-			},
-			wantErr: false,
-		},
-		{
-			name: "invalid value",
-			fields: fields{
-				metric:     NewRawMetric("test", "gauge", "gdfgdf"),
-				repository: memory.NewMetricGaugeMemoryRepository(),
-			},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := NewGaugeSaver(tt.fields.metric, tt.fields.repository)
-			if err := s.Save(); (err != nil) != tt.wantErr {
-				t.Errorf("gaugeSaver.save() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func Test_counterSaver_save(t *testing.T) {
-	type fields struct {
-		metric     RawMetric
-		repository repository.MetricRepository[model.Counter]
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-	}{
-		{
-			name: "correct value",
-			fields: fields{
-				metric:     NewRawMetric("test", "counter", "1234"),
-				repository: memory.NewMetricCounterMemoryRepository(),
-			},
-			wantErr: false,
-		},
-		{
-			name: "invalid value",
-			fields: fields{
-				metric:     NewRawMetric("test", "counter", "gdfgdf"),
-				repository: memory.NewMetricCounterMemoryRepository(),
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := NewCounterSaver(tt.fields.metric, tt.fields.repository)
-			if err := s.Save(); (err != nil) != tt.wantErr {
-				t.Errorf("counterSaver.save() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestGaugeMetric_Name(t *testing.T) {
-	type fields struct {
-		name  string
-		value model.Gauge
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{
-			name: "gauge value 65",
-			fields: fields{
-				name:  "test",
-				value: 65,
-			},
-			want: "test",
-		},
-		{
-			name: "gauge value 150",
-			fields: fields{
-				name:  "test1",
-				value: 150,
-			},
-			want: "test1",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := NewGaugeMetric(tt.fields.name, float64(tt.fields.value))
-			if got := m.Name(); got != tt.want {
-				t.Errorf("GaugeMetric.Name() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGaugeMetric_Type(t *testing.T) {
-	type fields struct {
-		name  string
-		value model.Gauge
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{
-			name: "gauge",
-			fields: fields{
-				name:  "test",
-				value: 0,
-			},
-			want: "gauge",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := NewGaugeMetric(tt.fields.name, float64(tt.fields.value))
-			if got := m.Type(); got != tt.want {
-				t.Errorf("GaugeMetric.Type() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGaugeMetric_Value(t *testing.T) {
-	type fields struct {
-		name  string
-		value model.Gauge
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{
-			name: "counter value 65",
-			fields: fields{
-				name:  "test",
-				value: 65.00,
-			},
-			want: "65",
-		},
-		{
-			name: "counter value 150",
-			fields: fields{
-				name:  "test",
-				value: 150,
-			},
-			want: "150",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := NewGaugeMetric(tt.fields.name, float64(tt.fields.value))
-			if got := m.Value(); got != tt.want {
-				t.Errorf("GaugeMetric.Value() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGaugeMetric_SetValue(t *testing.T) {
-	type fields struct {
-		name  string
-		value model.Gauge
-	}
+func TestNewMetric(t *testing.T) {
 	type args struct {
-		v float64
+		name       string
+		value      string
+		metricType string
 	}
+
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
+		name    string
+		args    args
+		want    Metric
+		wantErr bool
 	}{
 		{
-			name: "gauge value 65",
-			fields: fields{
-				name:  "test",
-				value: 65,
-			},
+			name: "right gauge metric",
 			args: args{
-				v: 100,
+				name:       "test",
+				value:      "1",
+				metricType: TypeGauge,
 			},
+			want: &gauge{
+				name:  "test",
+				value: 1,
+			},
+			wantErr: false,
+		},
+		{
+			name: "right zero gauge metric",
+			args: args{
+				name:       "test",
+				value:      "0",
+				metricType: TypeGauge,
+			},
+			want: &gauge{
+				name:  "test",
+				value: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "right negative gauge metric",
+			args: args{
+				name:       "test",
+				value:      "-1032",
+				metricType: TypeGauge,
+			},
+			want: &gauge{
+				name:  "test",
+				value: -1032,
+			},
+			wantErr: false,
+		},
+		{
+			name: "right a huge gauge metric",
+			args: args{
+				name:       "test",
+				value:      "2340230423.2342342",
+				metricType: TypeGauge,
+			},
+			want: &gauge{
+				name:  "test",
+				value: 2340230423.2342342,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid gauge metric: value",
+			args: args{
+				name:       "test",
+				value:      "dfsgkr32423",
+				metricType: TypeGauge,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid gauge metric: empty name",
+			args: args{
+				name:       "",
+				value:      "12.321",
+				metricType: TypeGauge,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid gauge metric: empty value",
+			args: args{
+				name:       "test",
+				value:      "",
+				metricType: TypeGauge,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+
+		{
+			name: "right counter metric",
+			args: args{
+				name:       "test",
+				value:      "1",
+				metricType: TypeCounter,
+			},
+			want: &counter{
+				name:  "test",
+				value: 1,
+			},
+			wantErr: false,
+		},
+		{
+			name: "right zero counter metric",
+			args: args{
+				name:       "test",
+				value:      "0",
+				metricType: TypeCounter,
+			},
+			want: &counter{
+				name:  "test",
+				value: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "right negative counter metric",
+			args: args{
+				name:       "test",
+				value:      "-1032",
+				metricType: TypeCounter,
+			},
+			want: &counter{
+				name:  "test",
+				value: -1032,
+			},
+			wantErr: false,
+		},
+		{
+			name: "right a huge counter metric",
+			args: args{
+				name:       "test",
+				value:      "2340230423",
+				metricType: TypeGauge,
+			},
+			want: &gauge{
+				name:  "test",
+				value: 2340230423,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid counter metric: value",
+			args: args{
+				name:       "test",
+				value:      "dfsgkr32423",
+				metricType: TypeCounter,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid counter metric: empty name",
+			args: args{
+				name:       "",
+				value:      "12",
+				metricType: TypeCounter,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid counter metric: empty value",
+			args: args{
+				name:       "test",
+				value:      "",
+				metricType: TypeCounter,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid counter metric: invalid type",
+			args: args{
+				name:       "test",
+				value:      "123",
+				metricType: TypeGauge + TypeCounter,
+			},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &GaugeMetric{
-				name:  tt.fields.name,
-				value: tt.fields.value,
-			}
-			m.SetValue(tt.args.v)
+			got, err := ParseMetric(tt.args.name, tt.args.value, tt.args.metricType)
 
-			if tt.args.v != float64(m.value) {
-				t.Errorf("GaugeMetric.SetValue() = %v, want %v", m.value, tt.args.v)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewMetric() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCreateSummedCounter(t *testing.T) {
+	type args struct {
+		name    string
+		metrics []Metric
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    Metric
+		wantErr bool
+	}{
+		{
+			name: "single value, must be 100",
+			args: args{
+				name: "test",
+				metrics: []Metric{
+					&counter{
+						name:  "test",
+						value: 100,
+					},
+				},
+			},
+			want: &counter{
+				name:  "test",
+				value: 100,
+			},
+			wantErr: false,
+		},
+		{
+			name: "several values, must be 677",
+			args: args{
+				name: "test",
+				metrics: []Metric{
+					&counter{
+						name:  "test",
+						value: 100,
+					},
+					&counter{
+						name:  "test",
+						value: 50,
+					},
+					&counter{
+						name:  "test",
+						value: 50,
+					},
+					&counter{
+						name:  "test",
+						value: 25,
+					},
+					&counter{
+						name:  "test",
+						value: 25,
+					},
+					&counter{
+						name:  "test",
+						value: 25,
+					},
+					&counter{
+						name:  "test",
+						value: 25,
+					},
+					&counter{
+						name:  "test",
+						value: 100,
+					},
+					&counter{
+						name:  "test",
+						value: 50,
+					},
+					&counter{
+						name:  "test",
+						value: 50,
+					},
+					&counter{
+						name:  "test",
+						value: 25,
+					},
+					&counter{
+						name:  "test",
+						value: 25,
+					},
+					&counter{
+						name:  "test",
+						value: 25,
+					},
+					&counter{
+						name:  "test",
+						value: 25,
+					},
+					&counter{
+						name:  "test",
+						value: 35,
+					},
+					&counter{
+						name:  "test",
+						value: 35,
+					},
+					&counter{
+						name:  "test",
+						value: 7,
+					},
+				},
+			},
+			want: &counter{
+				name:  "test",
+				value: 677,
+			},
+			wantErr: false,
+		},
+		{
+			name: "several values, with uncorrected type of metric",
+			args: args{
+				name: "test",
+				metrics: []Metric{
+					&counter{
+						name:  "test",
+						value: 100,
+					},
+					&gauge{
+						name:  "test",
+						value: 100,
+					},
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CreateSummedCounter(tt.args.name, tt.args.metrics)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewMetric() = %v, want %v", got, tt.want)
 			}
 
 		})
 	}
 }
 
-func TestCounterMetric_Name(t *testing.T) {
-	type fields struct {
-		name  string
-		value model.Counter
+func TestFromJSON(t *testing.T) {
+	type args struct {
+		content []byte
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		want   string
+		name    string
+		args    args
+		want    Metric
+		wantErr bool
 	}{
 		{
-			name: "counter value 65",
-			fields: fields{
-				name:  "test",
-				value: 65,
+			name: "correct counter metric",
+			args: args{
+				content: []byte(`{"id":"test1","type":"counter","delta": 1231}`),
 			},
-			want: "test",
+			want: &counter{
+				name:  "test1",
+				value: 1231,
+			},
+			wantErr: false,
 		},
 		{
-			name: "counter value 150",
-			fields: fields{
-				name:  "test",
-				value: 150,
+			name: "uncorrected counter metric",
+			args: args{
+				content: []byte(`{"id":"test1","type":"counter","value": 1231}`),
 			},
-			want: "test",
+			want: &counter{
+				name:  "test1",
+				value: 0,
+			},
+			wantErr: true,
+		},
+		{
+			name: "correct gauge metric",
+			args: args{
+				content: []byte(`{"id":"test1","type":"gauge","value": 1231.12312}`),
+			},
+			want: &gauge{
+				name:  "test1",
+				value: 1231.12312,
+			},
+			wantErr: false,
+		},
+		{
+			name: "uncorrected gauge metric",
+			args: args{
+				content: []byte(`{"id":"test1","type":"gauge","delta": 1231}`),
+			},
+			want:    &gauge{
+				name:  "test1",
+				value: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid metric: empty name",
+			args: args{
+				content: []byte(`{"id":"","type":"gauge","value": 1231.213213}`),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid metric: unknown type",
+			args: args{
+				content: []byte(`{"id":"test1","type":"temp","value": 1231.213213}`),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid body",
+			args: args{
+				content: []byte(`{"id":"","type":"temp","value": "1231.213213"}`),
+			},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewCounterMetric(tt.fields.name, int64(tt.fields.value))
-			if got := m.Name(); got != tt.want {
-				t.Errorf("CounterMetric.Name() = %v, want %v", got, tt.want)
+			got, err := FromJSON(tt.args.content)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FromJSON() = %v, want %v", got, tt.want)
 			}
-		})
-	}
-}
-
-func TestCounterMetric_Value(t *testing.T) {
-	type fields struct {
-		name  string
-		value model.Counter
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{
-			name: "counter value 65",
-			fields: fields{
-				name:  "test",
-				value: 65,
-			},
-			want: "65",
-		},
-		{
-			name: "counter value 150",
-			fields: fields{
-				name:  "test",
-				value: 150,
-			},
-			want: "150",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := NewCounterMetric(tt.fields.name, int64(tt.fields.value))
-			if got := m.Value(); got != tt.want {
-				t.Errorf("CounterMetric.Value() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestCounterMetric_Type(t *testing.T) {
-	type fields struct {
-		name  string
-		value model.Counter
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{
-			name: "counter",
-			fields: fields{
-				name:  "test",
-				value: 0,
-			},
-			want: "counter",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := NewCounterMetric(tt.fields.name, int64(tt.fields.value))
-			if got := m.Type(); got != tt.want {
-				t.Errorf("CounterMetric.Type() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestCounterMetric_Increment(t *testing.T) {
-	type fields struct {
-		name  string
-		value model.Counter
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		count  int
-		want   int
-	}{
-		{
-			name: "increment 1",
-			fields: fields{
-				name:  "test",
-				value: 0,
-			},
-			count: 1,
-			want:  1,
-		},
-		{
-			name: "increment 10",
-			fields: fields{
-				name:  "test",
-				value: 0,
-			},
-			count: 10,
-			want:  10,
-		},
-		{
-			name: "increment 1000",
-			fields: fields{
-				name:  "test",
-				value: 0,
-			},
-			count: 1000,
-			want:  1000,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := NewCounterMetric(tt.fields.name, int64(tt.fields.value))
-			for i := 0; i < tt.count; i++ {
-				m.Increment()
-			}
-
-			assert.Equal(t, tt.want, int(m.value))
-
 		})
 	}
 }
