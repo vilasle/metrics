@@ -113,10 +113,6 @@ func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 	}
 }
 
-func (c *RuntimeCollector) SetCounterValue(counter metric.Metric) {
-	c.counters[counter.Name()] = counter
-}
-
 func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
 	if v, ok := c.gauges[name]; ok {
 		return v

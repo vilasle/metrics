@@ -25,10 +25,15 @@ func (c counter) Type() string {
 }
 
 func (c *counter) AddValue(val any) error {
-	if v, ok := val.(int64); ok {
+	switch v := val.(type) {
+	case int64:
 		c.value += v
-	} else {
-		return fmt.Errorf("value is %T, expect int64", val)
+	case float64:
+		c.value += int64(v)
+	case int:
+		c.value += int64(v)
+	default:
+		return fmt.Errorf("value is %T, expect int64 or float64", val)
 	}
 	return nil
 }
