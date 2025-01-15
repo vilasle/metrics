@@ -28,8 +28,6 @@ func (c *counter) AddValue(val any) error {
 	switch v := val.(type) {
 	case int64:
 		c.value += v
-	case float64:
-		c.value += int64(v)
 	case int:
 		c.value += int64(v)
 	default:
