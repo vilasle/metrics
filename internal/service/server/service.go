@@ -31,7 +31,16 @@ func (s MetricService) Get(metricType, name string) (metric.Metric, error) {
 	if len(metrics) == 0 {
 		return nil, service.ErrMetricIsNotExist
 	}
-	return metrics[0], nil
+
+	if metricType == metric.TypeGauge {
+		return metrics[0], nil
+	}
+
+	if m, err := metric.CreateSummedCounter(name, metrics); err == nil {
+		return m, nil
+	} else {
+		return nil, errors.Join(service.ErrStorage, err)
+	}
 }
 
 func (s MetricService) All() ([]metric.Metric, error) {
