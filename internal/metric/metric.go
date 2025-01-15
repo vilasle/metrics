@@ -18,6 +18,7 @@ type Metric interface {
 	ToJSON() ([]byte, error)
 	SetValue(any) error
 	AddValue(any) error
+	String() string
 }
 
 func ParseMetric(name, value, metricType string) (Metric, error) {

@@ -32,6 +32,10 @@ func (m wrongMetric) AddValue(any) error {
 	panic("not implemented")
 }
 
+func (m wrongMetric) String() string {
+	return "wrongMetric"
+}
+
 func TestMemoryMetricRepository_Save(t *testing.T) {
 	testCases := []struct {
 		name    string

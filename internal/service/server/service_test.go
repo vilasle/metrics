@@ -32,6 +32,10 @@ func (m wrongMetric) AddValue(any) error {
 	panic("not implemented")
 }
 
+func (m wrongMetric) String() string {
+	return "wrongMetric"
+}
+
 func TestMetricService_Save(t *testing.T) {
 	type fields struct {
 		//FIXME mock interface for getting errors
