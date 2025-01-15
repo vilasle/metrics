@@ -106,7 +106,7 @@ func handleDisplayMetricAsTextJSON(svc service.MetricService, r *http.Request) R
 	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
 
 	m, err := metric.FromJSON(decompressedContent)
-	if err != nil && !errors.Is(err, metric.ErrNotFilledValue) {
+	if err != nil && !errors.Is(err, metric.ErrEmptyValue) {
 		return NewTextResponse(emptyBody(), err)
 	}
 

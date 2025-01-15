@@ -376,7 +376,10 @@ func TestFromJSON(t *testing.T) {
 			args: args{
 				content: []byte(`{"id":"test1","type":"counter","value": 1231}`),
 			},
-			want:    nil,
+			want: &counter{
+				name:  "test1",
+				value: 0,
+			},
 			wantErr: true,
 		},
 		{
@@ -395,8 +398,11 @@ func TestFromJSON(t *testing.T) {
 			args: args{
 				content: []byte(`{"id":"test1","type":"gauge","delta": 1231}`),
 			},
-			want:    nil,
-			wantErr: true,
+			want:    &gauge{
+				name:  "test1",
+				value: 0,
+			},
+			wantErr: false,
 		},
 		{
 			name: "invalid metric: empty name",

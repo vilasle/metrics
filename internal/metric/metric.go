@@ -88,19 +88,29 @@ func FromJSON(content []byte) (Metric, error) {
 }
 
 func createGaugeMetric(name string, value *float64) (Metric, error) {
-	var v float64
+	var (
+		v   float64
+		err error
+	)
 	if value != nil {
 		v = *value
-	} 
-	return &gauge{name, v}, nil
+	} else {
+		err = ErrEmptyValue
+	}
+	return &gauge{name, v}, err
 }
 
 func createCounterMetric(name string, value *int64) (Metric, error) {
-	var v int64
+	var (
+		v   int64
+		err error
+	)
 	if value != nil {
 		v = *value
-	} 
-	return &counter{name, v}, nil
+	} else {
+		err = ErrEmptyValue
+	}
+	return &counter{name, v}, err
 }
 
 func isNotEmpty(name, value string) error {
