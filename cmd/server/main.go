@@ -80,7 +80,7 @@ func main() {
 		}
 	}()
 
-	logger.Init(os.Stdout, false)
+	logger.Init(os.Stdout, true)
 
 	defer logger.Close()
 
