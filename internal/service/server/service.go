@@ -51,8 +51,7 @@ func (s MetricService) All() ([]metric.Metric, error) {
 		if v, err := metric.CreateSummedCounter(name, metrics); err == nil {
 			rs = append(rs, v)
 		} else {
-			//TODO wrap error
-			return nil, err
+			return nil, errors.Join(service.ErrStorage, err)
 		}
 	}
 	return rs, nil

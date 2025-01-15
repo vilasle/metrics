@@ -103,7 +103,6 @@ func TestMemoryMetricRepository_Save(t *testing.T) {
 }
 
 func TestMemoryMetricRepository_Get(t *testing.T) {
-
 	r := NewMetricRepository()
 
 	testMetrics := []metric.Metric{
