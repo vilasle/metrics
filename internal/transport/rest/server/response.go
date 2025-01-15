@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service"
 )
 
@@ -80,6 +81,9 @@ func errorBadRequest(err error) bool {
 		service.ErrUnknownKind,
 		service.ErrEmptyValue,
 		ErrEmptyRequestBody,
+		metric.ErrConvertingRawValue,
+		metric.ErrEmptyValue,
+		metric.ErrUnknownMetricType,
 	)
 }
 func errorNotFound(err error) bool {
@@ -89,6 +93,7 @@ func errorNotFound(err error) bool {
 		service.ErrUnknownKind,
 		ErrForbiddenResource,
 		ErrEmptyRequiredFields,
+		metric.ErrEmptyName,
 	)
 }
 

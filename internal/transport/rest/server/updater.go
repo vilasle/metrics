@@ -34,7 +34,7 @@ func handleUpdateAsTextPlain(svc service.MetricService, r *http.Request) Respons
 	raw := getRawDataFromContext(r.Context())
 	logger.Debugw("raw data from url", "raw", raw, "url", r.URL.String())
 
-	if m, err := metric.ParseMetric(raw.Name, raw.Type, raw.Value); err == nil {
+	if m, err := metric.ParseMetric(raw.Name, raw.Value, raw.Type); err == nil {
 		err := svc.Save(m)
 		return NewTextResponse(emptyBody(), err)
 	} else {

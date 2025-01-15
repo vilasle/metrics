@@ -80,7 +80,7 @@ func handleDisplayMetricAsTextPlain(svc service.MetricService, r *http.Request) 
 		return NewTextResponse(emptyBody(), ErrEmptyRequiredFields)
 	}
 
-	metric, err := svc.Get(raw.Name, raw.Type)
+	metric, err := svc.Get(raw.Type, raw.Name)
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
