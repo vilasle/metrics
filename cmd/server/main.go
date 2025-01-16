@@ -53,7 +53,7 @@ func getConfig() runConfig {
 	storageInternal := flag.Int64("i", 300, "dumping timeout")
 	dumpFile := flag.String("f", "a.metrics", "dump file")
 	restore := flag.Bool("r", true, "need to restore metrics from dump")
-	dbDSN := flag.String("d", "'postgres://user:password@host:port/database?option=value'", "database dns")
+	dbDSN := flag.String("d", "", "database dns e.g. 'postgres://user:password@host:port/database?option=value'")
 
 	flag.Parse()
 
