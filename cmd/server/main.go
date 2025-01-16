@@ -31,21 +31,21 @@ type runConfig struct {
 	dumpFilePath string
 	dumpInterval int64
 	restore      bool
-	databaseDns  string
+	databaseDSN  string
 }
 
 func (c runConfig) String() string {
-	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDns: %s",
-		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDns)
+	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDSN: %s",
+		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDSN)
 }
 
 func (c runConfig) DNS() (string, error) {
-	link, err := url.Parse(c.databaseDns)
+	link, err := url.Parse(c.databaseDSN)
 	if err != nil {
 		return "", err
 	}
 	_ = link
-	return c.databaseDns, nil
+	return c.databaseDSN, nil
 }
 
 func getConfig() runConfig {
@@ -91,7 +91,7 @@ func getConfig() runConfig {
 		restore:      *restore,
 		dumpFilePath: *dumpFile,
 		dumpInterval: *storageInternal,
-		databaseDns:  *dbDSN,
+		databaseDSN:  *dbDSN,
 	}
 }
 
@@ -197,10 +197,10 @@ func createRepositoryService(config runConfig) (service.MetricService, context.C
 }
 
 func getStorage(config runConfig) (repository.MetricRepository, error) {
-	if config.databaseDns == "" {
+	if config.databaseDSN == "" {
 		return memory.NewMetricRepository(), nil
 	}
-	pool, err := pgxpool.New(context.TODO(), config.databaseDns)
+	pool, err := pgxpool.New(context.TODO(), config.databaseDSN)
 	if err != nil {
 		return nil, err
 	}
