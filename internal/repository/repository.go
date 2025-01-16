@@ -10,5 +10,5 @@ type MetricRepository interface {
 	Save(metric.Metric) error
 	Get(metricType string, filterName ...string) ([]metric.Metric, error)
 	Ping(ctx context.Context) (error)
-	Close() error
+	Close()
 }

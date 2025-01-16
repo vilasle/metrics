@@ -6,17 +6,21 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/logger"
+	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
 	srvSvc "github.com/vilasle/metrics/internal/service/server"
 	"github.com/vilasle/metrics/internal/service/server/dumper"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
+	"github.com/vilasle/metrics/internal/repository/postgresql"
 
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
@@ -33,6 +37,15 @@ type runConfig struct {
 func (c runConfig) String() string {
 	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDns: %s",
 		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDns)
+}
+
+func (c runConfig) DNS() (string, error) {
+	link, err := url.Parse(c.databaseDns)
+	if err != nil {
+		return "", err
+	}
+	_ = link
+	return c.databaseDns, nil
 }
 
 func getConfig() runConfig {
@@ -158,16 +171,19 @@ func subscribeToStopSignals() chan os.Signal {
 }
 
 func createRepositoryService(config runConfig) (service.MetricService, context.CancelFunc) {
-	storage := memory.NewMetricRepository()
+	storage, err := getStorage(config)
+	if err != nil {
+		logger.Fatalf("can not create storage", "error", err)
+	}
 
 	fs, err := dumper.NewFileStream(config.dumpFilePath)
 	if err != nil {
-		panic(err)
+		logger.Fatalf("can not create file dumper", "error", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	svc := srvSvc.NewMetricService(storage)
-
+	//FIXME dumper must wrap storage not service
 	if svcDumper, err := dumper.NewFileDumper(ctx, dumper.Config{
 		Timeout: (time.Second * time.Duration(config.dumpInterval)),
 		Restore: config.restore,
@@ -178,6 +194,17 @@ func createRepositoryService(config runConfig) (service.MetricService, context.C
 	} else {
 		panic(err)
 	}
+}
+
+func getStorage(config runConfig) (repository.MetricRepository, error) {
+	if config.databaseDns == "" {
+		return memory.NewMetricRepository(), nil
+	}
+	pool, err := pgxpool.New(context.TODO(), config.databaseDns)
+	if err != nil {
+		return nil, err
+	}
+	return postgresql.NewRepository(pool), nil
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
@@ -197,6 +224,7 @@ func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
 	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
 	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+	srv.Register("/ping", toSlice(http.MethodGet), nil, rest.Ping(svc))
 }
 
 func toSlice(it ...string) []string {

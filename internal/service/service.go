@@ -12,7 +12,7 @@ type MetricService interface {
 	All() ([]metric.Metric, error)
 	Stats() ([]metric.Metric, error)
 	Ping(context.Context) error
-	Close() error
+	Close()
 }
 
 type Collector interface {

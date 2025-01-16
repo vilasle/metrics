@@ -91,8 +91,8 @@ func (s MetricService) Ping(ctx context.Context) error {
 	return s.storage.Ping(newCtx)
 }
 
-func (s MetricService) Close() error {
-	return s.storage.Close()
+func (s MetricService) Close() {
+	s.storage.Close()
 }
 
 func (s MetricService) all() (gauges, counters []metric.Metric, err error) {
