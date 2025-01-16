@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"errors"
+	"time"
 
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository"
@@ -81,6 +83,16 @@ func (s MetricService) Stats() ([]metric.Metric, error) {
 	rs = append(rs, allCounters...)
 
 	return rs, nil
+}
+
+func (s MetricService) Ping(ctx context.Context) error {
+	newCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	return s.storage.Ping(newCtx)
+}
+
+func (s MetricService) Close() error {
+	return s.storage.Close()
 }
 
 func (s MetricService) all() (gauges, counters []metric.Metric, err error) {

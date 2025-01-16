@@ -1,12 +1,18 @@
 package service
 
-import "github.com/vilasle/metrics/internal/metric"
+import (
+	"context"
+
+	"github.com/vilasle/metrics/internal/metric"
+)
 
 type MetricService interface {
 	Save(metric.Metric) error
 	Get(metricType, name string) (metric.Metric, error)
 	All() ([]metric.Metric, error)
 	Stats() ([]metric.Metric, error)
+	Ping(context.Context) error
+	Close() error
 }
 
 type Collector interface {

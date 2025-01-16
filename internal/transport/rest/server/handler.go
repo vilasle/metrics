@@ -30,3 +30,9 @@ func DisplayMetric(svc service.MetricService) HandlerWithResponse {
 		return showSpecificMetric(svc, r)
 	}
 }
+
+func Ping(svc service.MetricService) HandlerWithResponse {
+	return func(w http.ResponseWriter, r *http.Request) Response {
+		return NewTextResponse(emptyBody(), svc.Ping(r.Context()))
+	}
+}

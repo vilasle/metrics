@@ -39,6 +39,10 @@ func (r *MemoryMetricRepository) Ping(ctx context.Context) error {
 	return nil
 }
 
+func (r *MemoryMetricRepository) Close() error {
+	return nil
+}
+
 func (r *MemoryMetricRepository) getSaver(metricType string) saver {
 	if metricType == metric.TypeGauge {
 		return gaugeSaver{storage: r.gauges, mx: r.mxGauge}

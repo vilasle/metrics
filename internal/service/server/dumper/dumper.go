@@ -159,6 +159,14 @@ func (d *FileDumper) Stats() ([]metric.Metric, error) {
 	return d.svc.Stats()
 }
 
+func (d *FileDumper) Ping(ctx context.Context) error {
+	return d.svc.Ping(ctx)
+}
+
+func (d *FileDumper) Close() error {
+	return d.svc.Close()
+}
+
 func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration) {
 	ticker := time.NewTicker(timeout)
 	for {
