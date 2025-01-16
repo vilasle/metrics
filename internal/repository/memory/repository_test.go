@@ -36,6 +36,16 @@ func (m wrongMetric) String() string {
 	return "wrongMetric"
 }
 
+func (m wrongMetric) Float64() float64 {
+	return 0
+}
+
+func (m wrongMetric) Int64() int64 {
+	return 0
+}
+
+
+
 func TestMemoryMetricRepository_Save(t *testing.T) {
 	testCases := []struct {
 		name    string

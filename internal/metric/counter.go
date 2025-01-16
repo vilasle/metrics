@@ -62,6 +62,13 @@ func (c counter) String() string {
 	return fmt.Sprintf("{type: %s; name: %s; value: %d}", c.Type(), c.name, c.value)
 }
 
+func (c counter) Float64() float64 {
+	return float64(c.value)
+}
+func (c counter) Int64() int64 {
+	return c.value
+}
+
 func parseCounter(name string, value string) (*counter, error) {
 	if v, err := strconv.ParseInt(value, 10, 64); err == nil {
 		return &counter{name: name, value: v}, nil

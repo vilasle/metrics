@@ -68,14 +68,9 @@ func handleUpdateAsTextJSON(svc service.MetricService, r *http.Request) Response
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	updMetric, err := svc.Get(m.Type(), m.Name())
-	if err != nil {
-		return NewTextResponse(emptyBody(), err)
-	}
+	logger.Debugw("updated metric", "metric", m)
 
-	logger.Debugw("updated metric", "metric", updMetric)
-
-	updContent, err := updMetric.ToJSON()
+	updContent, err := m.ToJSON()
 	return NewJSONResponse(updContent, err)
 }
 

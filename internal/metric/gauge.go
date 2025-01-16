@@ -59,6 +59,13 @@ func (c gauge) String() string {
 	return fmt.Sprintf("{type: %s; name: %s; value: %f}", c.Type(), c.name, c.value)
 }
 
+func (c gauge) Float64() float64 {
+	return c.value
+}
+func (c gauge) Int64() int64 {
+	return int64(c.value)
+}
+
 func parseGauge(name string, value string) (*gauge, error) {
 	if v, err := strconv.ParseFloat(value, 64); err == nil {
 		return &gauge{name: name, value: v}, nil

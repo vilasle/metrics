@@ -18,6 +18,8 @@ type Metric interface {
 	ToJSON() ([]byte, error)
 	SetValue(any) error
 	AddValue(any) error
+	Float64() float64
+	Int64() int64
 	String() string
 }
 

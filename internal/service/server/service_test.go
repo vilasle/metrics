@@ -36,6 +36,14 @@ func (m wrongMetric) String() string {
 	return "wrongMetric"
 }
 
+func (m wrongMetric) Float64() float64 {
+	return 0
+}
+
+func (m wrongMetric) Int64() int64 {
+	return 0
+}
+
 func TestMetricService_Save(t *testing.T) {
 	type fields struct {
 		//FIXME mock interface for getting errors

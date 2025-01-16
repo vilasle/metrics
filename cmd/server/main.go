@@ -205,7 +205,7 @@ func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRe
 	if err != nil {
 		return nil, err
 	}
-	return postgresql.NewRepository(pool), nil
+	return postgresql.NewRepository(pool)
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
