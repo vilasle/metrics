@@ -173,12 +173,12 @@ func subscribeToStopSignals() chan os.Signal {
 func createRepositoryService(config runConfig) (service.MetricService, context.CancelFunc) {
 	storage, err := getStorage(config)
 	if err != nil {
-		logger.Fatalf("can not create storage", "error", err)
+		logger.Fatalw("can not create storage", "error", err)
 	}
 
 	fs, err := dumper.NewFileStream(config.dumpFilePath)
 	if err != nil {
-		logger.Fatalf("can not create file dumper", "error", err)
+		logger.Fatalw("can not create file dumper", "error", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

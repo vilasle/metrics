@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
@@ -88,7 +89,11 @@ func (s MetricService) Stats() ([]metric.Metric, error) {
 func (s MetricService) Ping(ctx context.Context) error {
 	newCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	return s.storage.Ping(newCtx)
+	err := s.storage.Ping(newCtx)
+	if err != nil {
+		logger.Errorw("ping database failed", "error", err)
+	}
+	return err
 }
 
 func (s MetricService) Close() {
