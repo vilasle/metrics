@@ -1,4 +1,3 @@
-		
 package main
 
 import (
@@ -17,9 +16,9 @@ import (
 	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
 	srvSvc "github.com/vilasle/metrics/internal/service/server"
-	"github.com/vilasle/metrics/internal/service/server/dumper"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
+	"github.com/vilasle/metrics/internal/repository/memory/dumper"
 	"github.com/vilasle/metrics/internal/repository/postgresql"
 
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
@@ -171,36 +170,38 @@ func subscribeToStopSignals() chan os.Signal {
 }
 
 func createRepositoryService(config runConfig) (service.MetricService, context.CancelFunc) {
-	storage, err := getStorage(config)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	storage, err := getStorage(ctx, config)
 	if err != nil {
 		logger.Fatalw("can not create storage", "error", err)
 	}
 
-	fs, err := dumper.NewFileStream(config.dumpFilePath)
-	if err != nil {
-		logger.Fatalw("can not create file dumper", "error", err)
-	}
+	return srvSvc.NewMetricService(storage), cancel
+}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	svc := srvSvc.NewMetricService(storage)
-	//FIXME dumper must wrap storage not service
-	if svcDumper, err := dumper.NewFileDumper(ctx, dumper.Config{
-		Timeout: (time.Second * time.Duration(config.dumpInterval)),
-		Restore: config.restore,
-		Service: svc,
-		Stream:  fs,
-	}); err == nil {
-		return svcDumper, cancel
+func getStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
+	if config.databaseDSN == "" {
+		return memoryStorage(ctx, config)
+	}
+	return postgresStorage(ctx, config)
+}
+
+func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
+	if fs, err := dumper.NewFileStream(config.dumpFilePath); err == nil {
+		return dumper.NewFileDumper(ctx, dumper.Config{
+			Timeout: (time.Second * time.Duration(config.dumpInterval)),
+			Restore: config.restore,
+			Storage: memory.NewMetricRepository(),
+			Stream:  fs,
+		})
 	} else {
-		panic(err)
+		return nil, err
 	}
 }
 
-func getStorage(config runConfig) (repository.MetricRepository, error) {
-	if config.databaseDSN == "" {
-		return memory.NewMetricRepository(), nil
-	}
-	pool, err := pgxpool.New(context.TODO(), config.databaseDSN)
+func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
+	pool, err := pgxpool.New(ctx, config.databaseDSN)
 	if err != nil {
 		return nil, err
 	}

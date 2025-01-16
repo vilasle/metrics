@@ -32,9 +32,12 @@ func (f *FileStream) Rewrite(b []byte) (int, error) {
 	f.mx.Lock()
 	defer f.mx.Unlock()
 
+	f.fd.Seek(0, 0)
+
 	if err := f.fd.Truncate(0); err != nil {
 		return 0, err
 	}
+	
 	return f.fd.Write(b)
 }
 
