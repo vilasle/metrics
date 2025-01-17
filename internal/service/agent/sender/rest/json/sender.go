@@ -82,6 +82,7 @@ func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	if err != nil {
 		return err
 	}
+
 	defer resp.Body.Close()
 
 	statusCode := resp.StatusCode

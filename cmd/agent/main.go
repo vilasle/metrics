@@ -115,7 +115,9 @@ func main() {
 		case <-pollTicker.C:
 			agent.Collect()
 		case <-reportTicker.C:
+			reportTicker.Stop()
 			agent.Report()
+			reportTicker.Reset(reportInterval)
 		case <-sigint:
 			pollTicker.Stop()
 			reportTicker.Stop()

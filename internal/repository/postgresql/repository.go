@@ -3,19 +3,24 @@ package postgresql
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository"
 )
 
-
 type PostgresqlMetricRepository struct {
-	db *pgxpool.Pool
+	db     *pgxpool.Pool
+	repeat []time.Duration
 }
 
 func NewRepository(db *pgxpool.Pool) (*PostgresqlMetricRepository, error) {
-	r := &PostgresqlMetricRepository{db: db}
+	r := &PostgresqlMetricRepository{
+		db:     db,
+		repeat: []time.Duration{time.Second * 1, time.Second * 3, time.Second * 5},
+	}
+
 	ctx := context.Background()
 	//TODO use ctx with timeout
 	err := r.Ping(ctx)
