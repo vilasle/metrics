@@ -222,6 +222,7 @@ func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.Cance
 func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
 	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+	srv.Register("/updates/", toSlice(http.MethodPost), nil, rest.BatchUpdate(svc))
 	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
 	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
 	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))

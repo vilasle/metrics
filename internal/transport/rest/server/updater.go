@@ -92,3 +92,43 @@ func unpackContent(content []byte, isCompressed bool) ([]byte, error) {
 		return c, err
 	}
 }
+
+func updateMetrics(svc service.MetricService, r *http.Request) Response {
+	switch r.Header.Get("Content-Type") {
+	case "application/json":
+		return handleUpdateMetricsAsBatch(svc, r)
+	default:
+		return NewTextResponse(emptyBody(), ErrUnknownContentType)
+	}
+}
+
+func handleUpdateMetricsAsBatch(svc service.MetricService, r *http.Request) Response {
+	defer r.Body.Close()
+	if r.Body == http.NoBody {
+		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
+	}
+	content, err := io.ReadAll(r.Body)
+	if err != nil {
+		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+	}
+
+	decompressedContent, err := unpackContent(content, r.Header.Get("Content-Encoding") == "gzip")
+	if err != nil {
+		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+	}
+
+	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
+
+	ms, err := metric.FromJSONArray(decompressedContent)
+	if err != nil {
+		return NewTextResponse(emptyBody(), err)
+	}
+
+	if err = svc.Save(ms...); err != nil {
+		return NewTextResponse(emptyBody(), err)
+	}
+
+	logger.Debugw("updated metrics", "metric", ms)
+
+	return NewTextResponse(emptyBody(), err)
+}

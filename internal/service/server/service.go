@@ -19,8 +19,8 @@ func NewMetricService(storage repository.MetricRepository) *MetricService {
 	return &MetricService{storage: storage}
 }
 
-func (s MetricService) Save(entity metric.Metric) error {
-	if err := s.storage.Save(entity); err != nil {
+func (s MetricService) Save(entity ...metric.Metric) error {
+	if err := s.storage.Save(entity...); err != nil {
 		return errors.Join(service.ErrStorage, err)
 	}
 	return nil

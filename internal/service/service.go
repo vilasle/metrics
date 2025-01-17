@@ -7,7 +7,7 @@ import (
 )
 
 type MetricService interface {
-	Save(metric.Metric) error
+	Save(...metric.Metric) error
 	Get(metricType, name string) (metric.Metric, error)
 	All() ([]metric.Metric, error)
 	Stats() ([]metric.Metric, error)

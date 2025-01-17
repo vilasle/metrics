@@ -19,6 +19,12 @@ func UpdateMetric(svc service.MetricService) HandlerWithResponse {
 	}
 }
 
+func BatchUpdate(svc service.MetricService) HandlerWithResponse {
+	return func(w http.ResponseWriter, r *http.Request) Response {
+		return updateMetrics(svc, r)
+	}
+}
+
 func DisplayAllMetrics(svc service.MetricService) HandlerWithResponse {
 	return func(w http.ResponseWriter, r *http.Request) Response {
 		return showAllMetrics(svc, r)

@@ -99,21 +99,25 @@ func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	return d, nil
 }
 
-func (d *FileDumper) Save(entity metric.Metric) error {
+func (d *FileDumper) Save(entity ...metric.Metric) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
-	if err := d.storage.Save(entity); err != nil {
+	if err := d.storage.Save(entity...); err != nil {
 		return err
 	}
 	if !d.syncSave {
 		return nil
 	}
-	//TODO raw metric change in should be interface for wrapping internal struct
-	dm := dumpedMetric{entity}
 
-	c := dm.dumpedContent()
-	_, err := d.fs.Write(c)
-	return err
+	errs := make([]error, 0)
+	for _, m := range entity {
+		dm := dumpedMetric{m}
+		c := dm.dumpedContent()
+		if _, err := d.fs.Write(c); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (d *FileDumper) DumpAll() error {

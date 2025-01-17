@@ -22,16 +22,15 @@ type gaugeSaver struct {
 }
 
 func (s gaugeSaver) save(m metric.Metric) error {
-	_, err := s.db.Exec(context.TODO(), s.saveTxt(), gaugeInx, m.Name(), m.Float64())
+	_, err := s.db.Exec(context.TODO(), s.saveTxt(), m.Name(), m.Float64())
 	return err
 }
 
 func (s gaugeSaver) saveTxt() string {
 	return `
-	INSERT INTO metrics ("type", "name", "value", "created_at")
-	VALUES ($1, $2, $3, now())
-	ON CONFLICT ("type", "name") DO UPDATE 
-	SET "value" = EXCLUDED."value", "created_at" = now();
+	INSERT INTO gauges ("id", "value")
+	VALUES ($1, $2) 
+	ON CONFLICT ("id") DO UPDATE SET "value" = EXCLUDED."value";
 	`
 }
 
@@ -40,15 +39,13 @@ type counterSaver struct {
 }
 
 func (s counterSaver) save(m metric.Metric) error {
-	_, err := s.db.Exec(context.TODO(), s.saveTxt(), counterInx, m.Name(), m.Int64())
+	_, err := s.db.Exec(context.TODO(), s.saveTxt(), m.Name(), m.Int64())
 	return err
 }
 
 func (s counterSaver) saveTxt() string {
 	return `
-	INSERT INTO metrics ("type", "name", "delta", "created_at")
-	VALUES ($1, $2, $3, now())
-	ON CONFLICT ("type", "name") DO UPDATE 
-	SET "delta" = EXCLUDED."delta", "created_at" = now();
+	INSERT INTO counters ("id", "value", "created_at")
+	VALUES ($1, $2, now())
 	`
 }

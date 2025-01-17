@@ -9,10 +9,6 @@ import (
 	"github.com/vilasle/metrics/internal/repository"
 )
 
-const (
-	gaugeInx   = 1
-	counterInx = 2
-)
 
 type PostgresqlMetricRepository struct {
 	db *pgxpool.Pool
@@ -30,8 +26,17 @@ func NewRepository(db *pgxpool.Pool) (*PostgresqlMetricRepository, error) {
 	return r, err
 }
 
-func (r *PostgresqlMetricRepository) Save(entity metric.Metric) error {
-	return r.getSaver(entity.Type()).save(entity)
+func (r *PostgresqlMetricRepository) Save(entity ...metric.Metric) error {
+	switch len(entity) {
+	case 0:
+		return repository.ErrEmptySetOfMetric
+	case 1:
+		e := entity[0]
+		return r.getSaver(e.Type()).save(e)
+	default:
+		//TODO wrap it
+		return r.saveAll(entity...)
+	}
 }
 
 func (r *PostgresqlMetricRepository) getSaver(metricType string) saver {
@@ -43,6 +48,25 @@ func (r *PostgresqlMetricRepository) getSaver(metricType string) saver {
 	default:
 		return &unknownSaver{}
 	}
+}
+
+func (r *PostgresqlMetricRepository) saveAll(entity ...metric.Metric) error {
+	tx, err := r.db.Begin(context.TODO())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background())
+	errs := make([]error, 0)
+
+	for _, e := range entity {
+		if err := r.getSaver(e.Type()).save(e); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return tx.Commit(context.Background())
 }
 
 func (r *PostgresqlMetricRepository) Get(metricType string, filterName ...string) ([]metric.Metric, error) {
@@ -72,36 +96,22 @@ func (r *PostgresqlMetricRepository) initMetadata(ctx context.Context) error {
 	if _, err := r.db.Exec(ctx, createTableTxt()); err != nil {
 		return errors.Join(repository.ErrInitializeMetadata, err)
 	}
-
-	if _, err := r.db.Exec(ctx, createIndexesTxt()); err != nil {
-		return errors.Join(repository.ErrInitializeMetadata, err)
-	}
 	return nil
 }
 
 func createTableTxt() string {
 	return `
-	CREATE TABLE IF NOT EXISTS metrics (
-    	"type" SMALLINT NOT NULL,
-    	"name" VARCHAR(100) NOT NULL,
-    	"value" DOUBLE PRECISION NULL,
-    	"delta" BIGINT NULL,
-    	"created_at" TIMESTAMP NOT NULL,
-    	
-		UNIQUE("type", "name"),
-    	
-		CONSTRAINT mapping_type
-    	-- 1 = gauge, gauge fields is "value"; 2 = counter, counter field is "delta"
-    	CHECK ( ("type" BETWEEN 1 AND 2) AND ( 
-				("type" = 1 AND "value" IS NOT NULL AND "delta" IS NULL ) OR 
-				("type" = 2 AND "delta" IS NOT NULL AND "value" IS NULL)
-    	    )
-    	)
-	);`
-}
+	CREATE TABLE IF NOT EXISTS gauges (
+    	"value" DOUBLE PRECISION NOT NULL,
+    	"id" VARCHAR(100) NOT NULL PRIMARY KEY
+	);
 
-func createIndexesTxt() string {
-	return `
-	CREATE INDEX IF NOT EXISTS metrics_created_at_idx ON metrics ("type", "name");
+	CREATE TABLE IF NOT EXISTS counters (
+    	"value" BIGINT NOT NULL,
+    	"id" VARCHAR(100) NOT NULL,
+    	"created_at" TIMESTAMP NOT NULL
+	);
+
+	CREATE INDEX IF NOT EXISTS counter_name_idx ON counters ("id");
 	`
 }

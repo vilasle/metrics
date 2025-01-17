@@ -30,8 +30,14 @@ func (g *counterGetter) get(filterName ...string) ([]metric.Metric, error) {
 }
 
 func (g *counterGetter) getByFilter(name ...string) ([]metric.Metric, error) {
-	txt := `SELECT name, delta FROM metrics WHERE "type" = $1 AND "name" = any($2)`
-	if r, err := g.db.Query(context.TODO(), txt, counterInx, name); err == nil {
+	txt := `
+		SELECT id, SUM(value) 
+		FROM counters 
+		WHERE "id" = any($1)
+		GROUP BY id
+		`
+
+	if r, err := g.db.Query(context.TODO(), txt, name); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
@@ -39,8 +45,8 @@ func (g *counterGetter) getByFilter(name ...string) ([]metric.Metric, error) {
 }
 
 func (g *counterGetter) getAll() ([]metric.Metric, error) {
-	txt := `SELECT name, delta FROM metrics WHERE "type" = $1`
-	if r, err := g.db.Query(context.TODO(), txt, counterInx); err == nil {
+	txt := `SELECT id, value FROM counters`
+	if r, err := g.db.Query(context.TODO(), txt); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
@@ -73,8 +79,8 @@ func (g *gaugeGetter) get(filterName ...string) ([]metric.Metric, error) {
 }
 
 func (g *gaugeGetter) getByFilter(name ...string) ([]metric.Metric, error) {
-	txt := `SELECT name, value FROM metrics WHERE "type" = $1 AND "name" = any($2)`
-	if r, err := g.db.Query(context.TODO(), txt, gaugeInx, name); err == nil {
+	txt := `SELECT id, value FROM gauges WHERE "id" = any($1)`
+	if r, err := g.db.Query(context.TODO(), txt, name); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
@@ -82,8 +88,8 @@ func (g *gaugeGetter) getByFilter(name ...string) ([]metric.Metric, error) {
 }
 
 func (g *gaugeGetter) getAll() ([]metric.Metric, error) {
-	txt := `SELECT name, value FROM metrics WHERE "type" = $1`
-	if r, err := g.db.Query(context.TODO(), txt, gaugeInx); err == nil {
+	txt := `SELECT id, value FROM gauges`
+	if r, err := g.db.Query(context.TODO(), txt); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
