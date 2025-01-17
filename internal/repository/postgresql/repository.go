@@ -5,20 +5,65 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository"
 )
 
-type PostgresqlMetricRepository struct {
+type repeater struct {
 	db     *pgxpool.Pool
 	repeat []time.Duration
 }
 
+func (r repeater) Exec(ctx context.Context, sql string, args ...interface{}) (err error) {
+	for _, d := range r.repeat {
+		if _, err = r.db.Exec(ctx, sql, args...); err == nil {
+			return nil
+		}
+		time.Sleep(d)
+	}
+	return err
+}
+
+func (r repeater) Query(ctx context.Context, sql string, args ...interface{}) (rows pgx.Rows, err error) {
+	for _, d := range r.repeat {
+		if rows, err = r.db.Query(ctx, sql, args...); err == nil {
+			return rows, nil
+		}
+		time.Sleep(d)
+	}
+	return nil, err
+}
+
+func (r repeater) Ping(ctx context.Context) (err error) {
+	for _, d := range r.repeat {
+		if err = r.db.Ping(ctx); err == nil {
+			return nil
+		}
+		time.Sleep(d)
+	}
+	return err
+}
+
+func (r repeater) Close() {
+	r.db.Close()
+}
+
+func (r repeater) Begin(ctx context.Context) (pgx.Tx, error) {
+	return r.db.Begin(ctx)
+}
+
+type PostgresqlMetricRepository struct {
+	db repeater
+}
+
 func NewRepository(db *pgxpool.Pool) (*PostgresqlMetricRepository, error) {
 	r := &PostgresqlMetricRepository{
-		db:     db,
-		repeat: []time.Duration{time.Second * 1, time.Second * 3, time.Second * 5},
+		db: repeater{
+			db:     db,
+			repeat: []time.Duration{time.Second * 1, time.Second * 3, time.Second * 5},
+		},
 	}
 
 	ctx := context.Background()
@@ -98,7 +143,7 @@ func (r *PostgresqlMetricRepository) Close() {
 }
 
 func (r *PostgresqlMetricRepository) initMetadata(ctx context.Context) error {
-	if _, err := r.db.Exec(ctx, createTableTxt()); err != nil {
+	if err := r.db.Exec(ctx, createTableTxt()); err != nil {
 		return errors.Join(repository.ErrInitializeMetadata, err)
 	}
 	return nil

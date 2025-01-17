@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/metric"
 )
 
@@ -19,7 +18,7 @@ func (g *unknownGetter) get(...string) ([]metric.Metric, error) {
 }
 
 type counterGetter struct {
-	db *pgxpool.Pool
+	db repeater
 }
 
 func (g *counterGetter) get(filterName ...string) ([]metric.Metric, error) {
@@ -68,7 +67,7 @@ func (g *counterGetter) parseResult(rows pgx.Rows) ([]metric.Metric, error) {
 }
 
 type gaugeGetter struct {
-	db *pgxpool.Pool
+	db repeater
 }
 
 func (g *gaugeGetter) get(filterName ...string) ([]metric.Metric, error) {

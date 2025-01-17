@@ -3,7 +3,6 @@ package postgresql
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/metric"
 )
 
@@ -18,12 +17,11 @@ func (s unknownSaver) save(metric.Metric) error {
 }
 
 type gaugeSaver struct {
-	db *pgxpool.Pool
+	db repeater
 }
 
 func (s gaugeSaver) save(m metric.Metric) error {
-	_, err := s.db.Exec(context.TODO(), s.saveTxt(), m.Name(), m.Float64())
-	return err
+	return s.db.Exec(context.TODO(), s.saveTxt(), m.Name(), m.Float64())
 }
 
 func (s gaugeSaver) saveTxt() string {
@@ -35,12 +33,11 @@ func (s gaugeSaver) saveTxt() string {
 }
 
 type counterSaver struct {
-	db *pgxpool.Pool
+	db repeater
 }
 
 func (s counterSaver) save(m metric.Metric) error {
-	_, err := s.db.Exec(context.TODO(), s.saveTxt(), m.Name(), m.Int64())
-	return err
+	return s.db.Exec(context.TODO(), s.saveTxt(), m.Name(), m.Int64())
 }
 
 func (s counterSaver) saveTxt() string {
