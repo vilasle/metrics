@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -271,7 +272,7 @@ func Test_counter_ToJSON(t *testing.T) {
 				name:  tt.fields.name,
 				value: tt.fields.value,
 			}
-			got, err := c.ToJSON()
+			got, err := json.Marshal(c)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("counter.ToJSON() error = %v, wantErr %v", err, tt.wantErr)
 				return

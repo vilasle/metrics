@@ -2,6 +2,7 @@ package rest
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -116,7 +117,7 @@ func handleDisplayMetricAsTextJSON(svc service.MetricService, r *http.Request) R
 	}
 	logger.Debugw("updated metric", "metric", metric)
 
-	metricContent, err := metric.ToJSON()
+	metricContent, err := json.Marshal(metric)
 	return NewJSONResponse(metricContent, err)
 }
 

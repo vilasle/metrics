@@ -42,7 +42,7 @@ func (c *gauge) SetValue(val any) error {
 	return nil
 }
 
-func (c gauge) ToJSON() ([]byte, error) {
+func (c gauge) MarshalJSON() ([]byte, error) {
 	metric := struct {
 		ID    string  `json:"id"`
 		MType string  `json:"type"`

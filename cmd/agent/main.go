@@ -58,7 +58,6 @@ func getConfig() runConfig {
 }
 
 func main() {
-
 	conf := getConfig()
 
 	c := collector.NewRuntimeCollector()
@@ -95,7 +94,7 @@ func main() {
 	pollTicker := time.NewTicker(pollInterval)
 	reportTicker := time.NewTicker(reportInterval)
 
-	updateAddress := fmt.Sprintf("http://%s/update/", conf.endpoint)
+	updateAddress := fmt.Sprintf("http://%s/updates/", conf.endpoint)
 
 	fmt.Printf("sending metrics to %s\n", updateAddress)
 	fmt.Printf("pulling metrics every %d sec\n", conf.poll/time.Second)

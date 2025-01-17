@@ -3,6 +3,7 @@ package rest
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -70,7 +71,7 @@ func handleUpdateAsTextJSON(svc service.MetricService, r *http.Request) Response
 
 	logger.Debugw("updated metric", "metric", m)
 
-	updContent, err := m.ToJSON()
+	updContent, err := json.Marshal(m)
 	return NewJSONResponse(updContent, err)
 }
 

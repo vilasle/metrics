@@ -15,12 +15,12 @@ type Metric interface {
 	Name() string
 	Value() string
 	Type() string
-	ToJSON() ([]byte, error)
 	SetValue(any) error
 	AddValue(any) error
 	Float64() float64
 	Int64() int64
 	String() string
+	MarshalJSON() ([]byte, error)
 }
 
 func ParseMetric(name, value, metricType string) (Metric, error) {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -41,13 +40,7 @@ func (a collectorAgent) report() error {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 
-	errs := make([]error, 0)
-	for _, metric := range a.Collector.AllMetrics() {
-		if err := a.Sender.Send(metric); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return errors.Join(errs...)
+	return a.SendBatch(a.AllMetrics()...)
 }
 
 func (a collectorAgent) resetPoolCounter() {

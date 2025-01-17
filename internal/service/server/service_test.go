@@ -22,7 +22,7 @@ func (m wrongMetric) Value() string {
 func (m wrongMetric) Type() string {
 	return "wrongMetric"
 }
-func (m wrongMetric) ToJSON() ([]byte, error) {
+func (m wrongMetric) MarshalJSON() ([]byte, error) {
 	panic("not implemented")
 }
 func (m wrongMetric) SetValue(any) error {
