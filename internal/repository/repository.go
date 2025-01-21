@@ -7,8 +7,8 @@ import (
 )
 
 type MetricRepository interface {
-	Save(...metric.Metric) error
-	Get(metricType string, filterName ...string) ([]metric.Metric, error)
-	Ping(ctx context.Context) (error)
+	Save(context.Context, ...metric.Metric) error
+	Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error)
+	Ping(ctx context.Context) error
 	Close()
 }

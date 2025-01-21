@@ -99,10 +99,10 @@ func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	return d, nil
 }
 
-func (d *FileDumper) Save(entity ...metric.Metric) error {
+func (d *FileDumper) Save(ctx context.Context, entity ...metric.Metric) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
-	if err := d.storage.Save(entity...); err != nil {
+	if err := d.storage.Save(ctx, entity...); err != nil {
 		return err
 	}
 	if !d.syncSave {
@@ -124,7 +124,7 @@ func (d *FileDumper) DumpAll() error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
 
-	s, err := d.getAll()
+	s, err := d.all(context.Background())
 	if err != nil {
 		return err
 	}
@@ -146,8 +146,8 @@ func (d *FileDumper) DumpAll() error {
 	return err
 }
 
-func (d *FileDumper) Get(metricType string, filterName ...string) ([]metric.Metric, error) {
-	return d.storage.Get(metricType, filterName...)
+func (d *FileDumper) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
+	return d.storage.Get(ctx, metricType, filterName...)
 }
 
 func (d *FileDumper) Ping(ctx context.Context) error {
@@ -189,6 +189,8 @@ func (d *FileDumper) restore() error {
 	rawGauge := make(map[string]metric.Metric)
 	rawCounter := make([]metric.Metric, 0)
 
+	ctx := context.Background()
+
 	for i, b := range all {
 		raw := strings.Split(b, ";")
 
@@ -215,17 +217,17 @@ func (d *FileDumper) restore() error {
 	}
 
 	for _, g := range rawGauge {
-		if err := d.storage.Save(g); err != nil {
+		if err := d.storage.Save(ctx, g); err != nil {
 			errs = append(errs, err)
 		}
 	}
 
 	for _, c := range rawCounter {
-		if err := d.storage.Save(c); err != nil {
+		if err := d.storage.Save(ctx, c); err != nil {
 			errs = append(errs, err)
 		}
 	}
-	_all, err := d.getAll()
+	_all, err := d.all(ctx)
 	if err != nil {
 		return err
 	}
@@ -242,13 +244,13 @@ func (d *FileDumper) restore() error {
 	return errors.Join(errs...)
 }
 
-func (d *FileDumper) getAll() ([]metric.Metric, error) {
-	gauges, err := d.storage.Get(metric.TypeGauge)
+func (d *FileDumper) all(ctx context.Context) ([]metric.Metric, error) {
+	gauges, err := d.storage.Get(ctx, metric.TypeGauge)
 	if err != nil {
 		return nil, err
 	}
 
-	counters, err := d.storage.Get(metric.TypeCounter)
+	counters, err := d.storage.Get(ctx, metric.TypeCounter)
 	if err != nil {
 		return nil, err
 	}

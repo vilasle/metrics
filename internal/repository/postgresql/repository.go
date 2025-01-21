@@ -5,54 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository"
 )
-
-type repeater struct {
-	db     *pgxpool.Pool
-	repeat []time.Duration
-}
-
-func (r repeater) Exec(ctx context.Context, sql string, args ...interface{}) (err error) {
-	for _, d := range r.repeat {
-		if _, err = r.db.Exec(ctx, sql, args...); err == nil {
-			return nil
-		}
-		time.Sleep(d)
-	}
-	return err
-}
-
-func (r repeater) Query(ctx context.Context, sql string, args ...interface{}) (rows pgx.Rows, err error) {
-	for _, d := range r.repeat {
-		if rows, err = r.db.Query(ctx, sql, args...); err == nil {
-			return rows, nil
-		}
-		time.Sleep(d)
-	}
-	return nil, err
-}
-
-func (r repeater) Ping(ctx context.Context) (err error) {
-	for _, d := range r.repeat {
-		if err = r.db.Ping(ctx); err == nil {
-			return nil
-		}
-		time.Sleep(d)
-	}
-	return err
-}
-
-func (r repeater) Close() {
-	r.db.Close()
-}
-
-func (r repeater) Begin(ctx context.Context) (pgx.Tx, error) {
-	return r.db.Begin(ctx)
-}
 
 type PostgresqlMetricRepository struct {
 	db repeater
@@ -76,16 +32,16 @@ func NewRepository(db *pgxpool.Pool) (*PostgresqlMetricRepository, error) {
 	return r, err
 }
 
-func (r *PostgresqlMetricRepository) Save(entity ...metric.Metric) error {
+func (r *PostgresqlMetricRepository) Save(ctx context.Context, entity ...metric.Metric) error {
 	switch len(entity) {
 	case 0:
 		return repository.ErrEmptySetOfMetric
 	case 1:
 		e := entity[0]
-		return r.getSaver(e.Type()).save(e)
+		return r.getSaver(e.Type()).save(ctx, e)
 	default:
 		//TODO wrap it
-		return r.saveAll(entity...)
+		return r.saveAll(ctx, entity...)
 	}
 }
 
@@ -100,27 +56,27 @@ func (r *PostgresqlMetricRepository) getSaver(metricType string) saver {
 	}
 }
 
-func (r *PostgresqlMetricRepository) saveAll(entity ...metric.Metric) error {
-	tx, err := r.db.Begin(context.TODO())
+func (r *PostgresqlMetricRepository) saveAll(ctx context.Context, entity ...metric.Metric) error {
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.Background())
+	defer tx.Rollback(ctx)
 	errs := make([]error, 0)
 
 	for _, e := range entity {
-		if err := r.getSaver(e.Type()).save(e); err != nil {
+		if err := r.getSaver(e.Type()).save(ctx, e); err != nil {
 			errs = append(errs, err)
 		}
 	}
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
-	return tx.Commit(context.Background())
+	return tx.Commit(ctx)
 }
 
-func (r *PostgresqlMetricRepository) Get(metricType string, filterName ...string) ([]metric.Metric, error) {
-	return r.getGetter(metricType).get(filterName...)
+func (r *PostgresqlMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
+	return r.getGetter(metricType).get(ctx, filterName...)
 }
 
 func (r *PostgresqlMetricRepository) getGetter(metricType string) getter {

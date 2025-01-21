@@ -8,12 +8,12 @@ import (
 )
 
 type getter interface {
-	get(...string) ([]metric.Metric, error)
+	get(context.Context, ...string) ([]metric.Metric, error)
 }
 
 type unknownGetter struct{}
 
-func (g *unknownGetter) get(...string) ([]metric.Metric, error) {
+func (g *unknownGetter) get(context.Context, ...string) ([]metric.Metric, error) {
 	return []metric.Metric{}, metric.ErrUnknownMetricType
 }
 
@@ -21,14 +21,14 @@ type counterGetter struct {
 	db repeater
 }
 
-func (g *counterGetter) get(filterName ...string) ([]metric.Metric, error) {
+func (g *counterGetter) get(ctx context.Context, filterName ...string) ([]metric.Metric, error) {
 	if len(filterName) == 0 {
-		return g.getAll()
+		return g.getAll(ctx)
 	}
-	return g.getByFilter(filterName...)
+	return g.getByFilter(ctx, filterName...)
 }
 
-func (g *counterGetter) getByFilter(name ...string) ([]metric.Metric, error) {
+func (g *counterGetter) getByFilter(ctx context.Context, name ...string) ([]metric.Metric, error) {
 	txt := `
 		SELECT id, SUM(value) 
 		FROM counters 
@@ -36,16 +36,16 @@ func (g *counterGetter) getByFilter(name ...string) ([]metric.Metric, error) {
 		GROUP BY id
 		`
 
-	if r, err := g.db.Query(context.TODO(), txt, name); err == nil {
+	if r, err := g.db.Query(ctx, txt, name); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
 	}
 }
 
-func (g *counterGetter) getAll() ([]metric.Metric, error) {
+func (g *counterGetter) getAll(ctx context.Context) ([]metric.Metric, error) {
 	txt := `SELECT id, value FROM counters`
-	if r, err := g.db.Query(context.TODO(), txt); err == nil {
+	if r, err := g.db.Query(ctx, txt); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
@@ -70,25 +70,25 @@ type gaugeGetter struct {
 	db repeater
 }
 
-func (g *gaugeGetter) get(filterName ...string) ([]metric.Metric, error) {
+func (g *gaugeGetter) get(ctx context.Context, filterName ...string) ([]metric.Metric, error) {
 	if len(filterName) == 0 {
-		return g.getAll()
+		return g.getAll(ctx)
 	}
-	return g.getByFilter(filterName...)
+	return g.getByFilter(ctx, filterName...)
 }
 
-func (g *gaugeGetter) getByFilter(name ...string) ([]metric.Metric, error) {
+func (g *gaugeGetter) getByFilter(ctx context.Context, name ...string) ([]metric.Metric, error) {
 	txt := `SELECT id, value FROM gauges WHERE "id" = any($1)`
-	if r, err := g.db.Query(context.TODO(), txt, name); err == nil {
+	if r, err := g.db.Query(ctx, txt, name); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
 	}
 }
 
-func (g *gaugeGetter) getAll() ([]metric.Metric, error) {
+func (g *gaugeGetter) getAll(ctx context.Context) ([]metric.Metric, error) {
 	txt := `SELECT id, value FROM gauges`
-	if r, err := g.db.Query(context.TODO(), txt); err == nil {
+	if r, err := g.db.Query(ctx, txt); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err

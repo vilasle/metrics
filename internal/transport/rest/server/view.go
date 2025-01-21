@@ -20,7 +20,7 @@ func showAllMetrics(svc service.MetricService, r *http.Request) Response {
 		return NewTextResponse(emptyBody(), ErrForbiddenResource)
 	}
 
-	metrics, err := svc.All()
+	metrics, err := svc.All(r.Context())
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
@@ -81,7 +81,7 @@ func handleDisplayMetricAsTextPlain(svc service.MetricService, r *http.Request) 
 		return NewTextResponse(emptyBody(), ErrEmptyRequiredFields)
 	}
 
-	metric, err := svc.Get(raw.Type, raw.Name)
+	metric, err := svc.Get(r.Context(), raw.Type, raw.Name)
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
@@ -111,7 +111,7 @@ func handleDisplayMetricAsTextJSON(svc service.MetricService, r *http.Request) R
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	metric, err := svc.Get(m.Type(), m.Name())
+	metric, err := svc.Get(r.Context(), m.Type(), m.Name())
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}

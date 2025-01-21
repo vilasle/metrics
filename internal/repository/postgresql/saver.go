@@ -7,12 +7,12 @@ import (
 )
 
 type saver interface {
-	save(metric.Metric) error
+	save(context.Context, metric.Metric) error
 }
 
 type unknownSaver struct{}
 
-func (s unknownSaver) save(metric.Metric) error {
+func (s unknownSaver) save(context.Context, metric.Metric) error {
 	return metric.ErrUnknownMetricType
 }
 
@@ -20,8 +20,8 @@ type gaugeSaver struct {
 	db repeater
 }
 
-func (s gaugeSaver) save(m metric.Metric) error {
-	return s.db.Exec(context.TODO(), s.saveTxt(), m.Name(), m.Float64())
+func (s gaugeSaver) save(ctx context.Context, m metric.Metric) error {
+	return s.db.Exec(ctx, s.saveTxt(), m.Name(), m.Float64())
 }
 
 func (s gaugeSaver) saveTxt() string {
@@ -36,8 +36,8 @@ type counterSaver struct {
 	db repeater
 }
 
-func (s counterSaver) save(m metric.Metric) error {
-	return s.db.Exec(context.TODO(), s.saveTxt(), m.Name(), m.Int64())
+func (s counterSaver) save(ctx context.Context, m metric.Metric) error {
+	return s.db.Exec(ctx, s.saveTxt(), m.Name(), m.Int64())
 }
 
 func (s counterSaver) saveTxt() string {

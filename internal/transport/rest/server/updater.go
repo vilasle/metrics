@@ -36,7 +36,7 @@ func handleUpdateAsTextPlain(svc service.MetricService, r *http.Request) Respons
 	logger.Debugw("raw data from url", "raw", raw, "url", r.URL.String())
 
 	if m, err := metric.ParseMetric(raw.Name, raw.Value, raw.Type); err == nil {
-		err := svc.Save(m)
+		err := svc.Save(r.Context(), m)
 		return NewTextResponse(emptyBody(), err)
 	} else {
 		return NewTextResponse(emptyBody(), err)
@@ -65,7 +65,7 @@ func handleUpdateAsTextJSON(svc service.MetricService, r *http.Request) Response
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	if err = svc.Save(m); err != nil {
+	if err = svc.Save(r.Context(), m); err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
 
@@ -125,7 +125,7 @@ func handleUpdateMetricsAsBatch(svc service.MetricService, r *http.Request) Resp
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	if err = svc.Save(ms...); err != nil {
+	if err = svc.Save(r.Context(), ms...); err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
 

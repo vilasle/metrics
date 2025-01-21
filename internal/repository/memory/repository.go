@@ -29,7 +29,7 @@ func NewMetricRepository() *MemoryMetricRepository {
 	}
 }
 
-func (r *MemoryMetricRepository) Save(entity ...metric.Metric) error {
+func (r *MemoryMetricRepository) Save(ctx context.Context, entity ...metric.Metric) error {
 	switch len(entity) {
 	case 0:
 		return repository.ErrEmptySetOfMetric
@@ -42,7 +42,7 @@ func (r *MemoryMetricRepository) Save(entity ...metric.Metric) error {
 	}
 }
 
-func (r *MemoryMetricRepository) Get(metricType string, filterName ...string) ([]metric.Metric, error) {
+func (r *MemoryMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
 	return r.getGetter(metricType).get(filterName...)
 }
 

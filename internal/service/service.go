@@ -7,10 +7,10 @@ import (
 )
 
 type MetricService interface {
-	Save(...metric.Metric) error
-	Get(metricType, name string) (metric.Metric, error)
-	All() ([]metric.Metric, error)
-	Stats() ([]metric.Metric, error)
+	Save(context.Context, ...metric.Metric) error
+	Get(ctx context.Context, metricType, name string) (metric.Metric, error)
+	All(context.Context) ([]metric.Metric, error)
+	Stats(context.Context) ([]metric.Metric, error)
 	Ping(context.Context) error
 	Close()
 }
