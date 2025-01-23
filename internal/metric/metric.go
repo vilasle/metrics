@@ -15,10 +15,12 @@ type Metric interface {
 	Name() string
 	Value() string
 	Type() string
-	ToJSON() ([]byte, error)
 	SetValue(any) error
 	AddValue(any) error
+	Float64() float64
+	Int64() int64
 	String() string
+	MarshalJSON() ([]byte, error)
 }
 
 func ParseMetric(name, value, metricType string) (Metric, error) {
@@ -86,6 +88,45 @@ func FromJSON(content []byte) (Metric, error) {
 	} else {
 		return nil, ErrUnknownMetricType
 	}
+}
+
+func FromJSONArray(content []byte) ([]Metric, error) {
+	rs := make([]Metric, 0)
+	errs := make([]error, 0)
+	objects := []struct {
+		ID    string   `json:"id"`
+		MType string   `json:"type"`
+		Delta *int64   `json:"delta,omitempty"`
+		Value *float64 `json:"value,omitempty"`
+	}{}
+
+	if err := json.Unmarshal(content, &objects); err != nil {
+		return nil, errors.Join(ErrInvalidMetric, err)
+	}
+
+	for _, object := range objects {
+		if object.ID == "" {
+			errs = append(errs, errors.Join(ErrInvalidMetric, fmt.Errorf("%v", object)))
+		}
+		
+		if object.MType == TypeGauge {
+			if m, err := createGaugeMetric(object.ID, object.Value); err == nil {
+				rs = append(rs, m)
+			} else {
+				errs = append(errs, errors.Join(err, fmt.Errorf("%v", object)))
+			}
+		} else if object.MType == TypeCounter {
+			if m, err := createCounterMetric(object.ID, object.Delta); err == nil {
+				rs = append(rs, m)
+			} else {
+				errs = append(errs, errors.Join(err, fmt.Errorf("%v", object)))
+			}
+		} else {
+			errs = append(errs, errors.Join(ErrUnknownMetricType, fmt.Errorf("%v", object)))
+		}
+	}
+
+	return rs, errors.Join(errs...)
 }
 
 func createGaugeMetric(name string, value *float64) (Metric, error) {

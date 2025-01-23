@@ -1,8 +1,11 @@
 package server
 
 import (
+	"context"
 	"errors"
+	"time"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
@@ -16,15 +19,15 @@ func NewMetricService(storage repository.MetricRepository) *MetricService {
 	return &MetricService{storage: storage}
 }
 
-func (s MetricService) Save(entity metric.Metric) error {
-	if err := s.storage.Save(entity); err != nil {
+func (s MetricService) Save(ctx context.Context, entity ...metric.Metric) error {
+	if err := s.storage.Save(ctx, entity...); err != nil {
 		return errors.Join(service.ErrStorage, err)
 	}
 	return nil
 }
 
-func (s MetricService) Get(metricType, name string) (metric.Metric, error) {
-	metrics, err := s.storage.Get(metricType, name)
+func (s MetricService) Get(ctx context.Context, metricType, name string) (metric.Metric, error) {
+	metrics, err := s.storage.Get(ctx, metricType, name)
 	if err != nil {
 		return nil, errors.Join(service.ErrStorage, err)
 	}
@@ -43,8 +46,8 @@ func (s MetricService) Get(metricType, name string) (metric.Metric, error) {
 	}
 }
 
-func (s MetricService) All() ([]metric.Metric, error) {
-	allGauges, allCounters, err := s.all()
+func (s MetricService) All(ctx context.Context) ([]metric.Metric, error) {
+	allGauges, allCounters, err := s.all(ctx)
 	if err != nil {
 		return nil, errors.Join(service.ErrStorage, err)
 	}
@@ -70,8 +73,8 @@ func (s MetricService) All() ([]metric.Metric, error) {
 	return rs, nil
 }
 
-func (s MetricService) Stats() ([]metric.Metric, error) {
-	allGauges, allCounters, err := s.all()
+func (s MetricService) Stats(ctx context.Context) ([]metric.Metric, error) {
+	allGauges, allCounters, err := s.all(ctx)
 	if err != nil {
 		return nil, errors.Join(service.ErrStorage, err)
 	}
@@ -83,13 +86,27 @@ func (s MetricService) Stats() ([]metric.Metric, error) {
 	return rs, nil
 }
 
-func (s MetricService) all() (gauges, counters []metric.Metric, err error) {
-	allGauges, err := s.storage.Get(metric.TypeGauge)
+func (s MetricService) Ping(ctx context.Context) error {
+	newCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	err := s.storage.Ping(newCtx)
+	if err != nil {
+		logger.Errorw("ping database failed", "error", err)
+	}
+	return err
+}
+
+func (s MetricService) Close() {
+	s.storage.Close()
+}
+
+func (s MetricService) all(ctx context.Context) (gauges, counters []metric.Metric, err error) {
+	allGauges, err := s.storage.Get(ctx, metric.TypeGauge)
 	if err != nil {
 		return nil, nil, errors.Join(service.ErrStorage, err)
 	}
 
-	allCounters, err := s.storage.Get(metric.TypeCounter)
+	allCounters, err := s.storage.Get(ctx, metric.TypeCounter)
 	if err != nil {
 		return nil, nil, errors.Join(service.ErrStorage, err)
 	}

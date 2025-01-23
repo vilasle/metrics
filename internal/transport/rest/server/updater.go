@@ -3,6 +3,7 @@ package rest
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -35,7 +36,7 @@ func handleUpdateAsTextPlain(svc service.MetricService, r *http.Request) Respons
 	logger.Debugw("raw data from url", "raw", raw, "url", r.URL.String())
 
 	if m, err := metric.ParseMetric(raw.Name, raw.Value, raw.Type); err == nil {
-		err := svc.Save(m)
+		err := svc.Save(r.Context(), m)
 		return NewTextResponse(emptyBody(), err)
 	} else {
 		return NewTextResponse(emptyBody(), err)
@@ -64,18 +65,13 @@ func handleUpdateAsTextJSON(svc service.MetricService, r *http.Request) Response
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	if err = svc.Save(m); err != nil {
+	if err = svc.Save(r.Context(), m); err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
 
-	updMetric, err := svc.Get(m.Type(), m.Name())
-	if err != nil {
-		return NewTextResponse(emptyBody(), err)
-	}
+	logger.Debugw("updated metric", "metric", m)
 
-	logger.Debugw("updated metric", "metric", updMetric)
-
-	updContent, err := updMetric.ToJSON()
+	updContent, err := json.Marshal(m)
 	return NewJSONResponse(updContent, err)
 }
 
@@ -96,4 +92,44 @@ func unpackContent(content []byte, isCompressed bool) ([]byte, error) {
 	} else {
 		return c, err
 	}
+}
+
+func updateMetrics(svc service.MetricService, r *http.Request) Response {
+	switch r.Header.Get("Content-Type") {
+	case "application/json":
+		return handleUpdateMetricsAsBatch(svc, r)
+	default:
+		return NewTextResponse(emptyBody(), ErrUnknownContentType)
+	}
+}
+
+func handleUpdateMetricsAsBatch(svc service.MetricService, r *http.Request) Response {
+	defer r.Body.Close()
+	if r.Body == http.NoBody {
+		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
+	}
+	content, err := io.ReadAll(r.Body)
+	if err != nil {
+		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+	}
+
+	decompressedContent, err := unpackContent(content, r.Header.Get("Content-Encoding") == "gzip")
+	if err != nil {
+		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+	}
+
+	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
+
+	ms, err := metric.FromJSONArray(decompressedContent)
+	if err != nil {
+		return NewTextResponse(emptyBody(), err)
+	}
+
+	if err = svc.Save(r.Context(), ms...); err != nil {
+		return NewTextResponse(emptyBody(), err)
+	}
+
+	logger.Debugw("updated metrics", "metric", ms)
+
+	return NewTextResponse(emptyBody(), err)
 }

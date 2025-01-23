@@ -227,7 +227,7 @@ func TestDisplayAllMetricsAsHtml(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := storage.Save(m); err != nil {
+		if err := storage.Save(context.TODO(), m); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -308,7 +308,7 @@ func TestDisplayMetricAsPlainText(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := storage.Save(m); err != nil {
+		if err := storage.Save(context.TODO(), m); err != nil {
 			t.Fatal(err)
 		}
 	}

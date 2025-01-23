@@ -11,7 +11,7 @@ import (
 
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
-	"github.com/vilasle/metrics/internal/service"
+	"github.com/vilasle/metrics/internal/repository"
 	"go.uber.org/zap"
 )
 
@@ -23,7 +23,7 @@ const (
 type Config struct {
 	Timeout time.Duration
 	Restore bool
-	Service service.MetricService
+	Storage repository.MetricRepository
 	Stream  *FileStream
 }
 
@@ -49,16 +49,16 @@ func (d dumpedMetric) dumpedContent() []byte {
 
 type FileDumper struct {
 	fs       *FileStream
-	svc      service.MetricService
+	storage  repository.MetricRepository
 	syncSave bool
 	srvMx    *sync.Mutex
 }
 
 func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	d := &FileDumper{
-		svc:   config.Service,
-		fs:    config.Stream,
-		srvMx: &sync.Mutex{},
+		storage: config.Storage,
+		fs:      config.Stream,
+		srvMx:   &sync.Mutex{},
 	}
 	/*
 		on during work on sync mode we will add only new lines to file
@@ -99,40 +99,39 @@ func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	return d, nil
 }
 
-func (d *FileDumper) Save(entity metric.Metric) error {
+func (d *FileDumper) Save(ctx context.Context, entity ...metric.Metric) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
-	if err := d.svc.Save(entity); err != nil {
+	if err := d.storage.Save(ctx, entity...); err != nil {
 		return err
 	}
 	if !d.syncSave {
 		return nil
 	}
-	//TODO raw metric change in should be interface for wrapping internal struct
-	dm := dumpedMetric{entity}
 
-	c := dm.dumpedContent()
-	_, err := d.fs.Write(c)
-	return err
+	errs := make([]error, 0)
+	for _, m := range entity {
+		dm := dumpedMetric{m}
+		c := dm.dumpedContent()
+		if _, err := d.fs.Write(c); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (d *FileDumper) DumpAll() error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
-	s, err := d.svc.Stats()
+
+	s, err := d.all(context.Background())
 	if err != nil {
 		return err
 	}
 
 	buf := bytes.Buffer{}
 	for _, m := range s {
-
-		rs, err := metric.ParseMetric(m.Name(), m.Value(), m.Type())
-		if err != nil {
-			return err
-		}
-
-		dm := dumpedMetric{rs}
+		dm := dumpedMetric{m}
 		c := dm.dumpedContent()
 		if _, err := buf.Write(c); err != nil {
 			return err
@@ -147,16 +146,16 @@ func (d *FileDumper) DumpAll() error {
 	return err
 }
 
-func (d *FileDumper) Get(name string, kind string) (metric.Metric, error) {
-	return d.svc.Get(name, kind)
+func (d *FileDumper) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
+	return d.storage.Get(ctx, metricType, filterName...)
 }
 
-func (d *FileDumper) All() ([]metric.Metric, error) {
-	return d.svc.All()
+func (d *FileDumper) Ping(ctx context.Context) error {
+	return d.storage.Ping(ctx)
 }
 
-func (d *FileDumper) Stats() ([]metric.Metric, error) {
-	return d.svc.Stats()
+func (d *FileDumper) Close() {
+	d.storage.Close()
 }
 
 func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration) {
@@ -190,6 +189,8 @@ func (d *FileDumper) restore() error {
 	rawGauge := make(map[string]metric.Metric)
 	rawCounter := make([]metric.Metric, 0)
 
+	ctx := context.Background()
+
 	for i, b := range all {
 		raw := strings.Split(b, ";")
 
@@ -216,17 +217,17 @@ func (d *FileDumper) restore() error {
 	}
 
 	for _, g := range rawGauge {
-		if err := d.svc.Save(g); err != nil {
+		if err := d.storage.Save(ctx, g); err != nil {
 			errs = append(errs, err)
 		}
 	}
 
 	for _, c := range rawCounter {
-		if err := d.svc.Save(c); err != nil {
+		if err := d.storage.Save(ctx, c); err != nil {
 			errs = append(errs, err)
 		}
 	}
-	_all, err := d.svc.Stats()
+	_all, err := d.all(ctx)
 	if err != nil {
 		return err
 	}
@@ -241,4 +242,17 @@ func (d *FileDumper) restore() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (d *FileDumper) all(ctx context.Context) ([]metric.Metric, error) {
+	gauges, err := d.storage.Get(ctx, metric.TypeGauge)
+	if err != nil {
+		return nil, err
+	}
+
+	counters, err := d.storage.Get(ctx, metric.TypeCounter)
+	if err != nil {
+		return nil, err
+	}
+	return append(gauges, counters...), nil
 }

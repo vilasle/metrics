@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"reflect"
 	"sort"
 	"sync"
@@ -22,7 +23,7 @@ func (m wrongMetric) Value() string {
 func (m wrongMetric) Type() string {
 	return "wrongMetric"
 }
-func (m wrongMetric) ToJSON() ([]byte, error) {
+func (m wrongMetric) MarshalJSON() ([]byte, error) {
 	panic("not implemented")
 }
 func (m wrongMetric) SetValue(any) error {
@@ -34,6 +35,14 @@ func (m wrongMetric) AddValue(any) error {
 
 func (m wrongMetric) String() string {
 	return "wrongMetric"
+}
+
+func (m wrongMetric) Float64() float64 {
+	return 0
+}
+
+func (m wrongMetric) Int64() int64 {
+	return 0
 }
 
 func TestMemoryMetricRepository_Save(t *testing.T) {
@@ -81,7 +90,7 @@ func TestMemoryMetricRepository_Save(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := NewMetricRepository()
 			for _, m := range tt.value {
-				err := r.Save(m)
+				err := r.Save(context.TODO(), m)
 				if tt.wantErr {
 					assert.Error(t, err)
 				} else {
@@ -123,7 +132,7 @@ func TestMemoryMetricRepository_Get(t *testing.T) {
 	}
 
 	for _, m := range testMetrics {
-		r.Save(m)
+		r.Save(context.TODO(), m)
 	}
 
 	type args struct {
@@ -221,7 +230,7 @@ func TestMemoryMetricRepository_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := r.Get(tt.args.metricType, tt.args.filterName...)
+			got, err := r.Get(context.TODO(), tt.args.metricType, tt.args.filterName...)
 
 			if tt.wantErr {
 				assert.Error(t, err)

@@ -5,18 +5,22 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/logger"
+	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
 	srvSvc "github.com/vilasle/metrics/internal/service/server"
-	"github.com/vilasle/metrics/internal/service/server/dumper"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
-	
+	"github.com/vilasle/metrics/internal/repository/memory/dumper"
+	"github.com/vilasle/metrics/internal/repository/postgresql"
+
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
@@ -26,11 +30,21 @@ type runConfig struct {
 	dumpFilePath string
 	dumpInterval int64
 	restore      bool
+	databaseDSN  string
 }
 
 func (c runConfig) String() string {
-	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t",
-		c.address, c.dumpFilePath, c.dumpInterval, c.restore)
+	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDSN: %s",
+		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDSN)
+}
+
+func (c runConfig) DNS() (string, error) {
+	link, err := url.Parse(c.databaseDSN)
+	if err != nil {
+		return "", err
+	}
+	_ = link
+	return c.databaseDSN, nil
 }
 
 func getConfig() runConfig {
@@ -38,6 +52,7 @@ func getConfig() runConfig {
 	storageInternal := flag.Int64("i", 300, "dumping timeout")
 	dumpFile := flag.String("f", "a.metrics", "dump file")
 	restore := flag.Bool("r", true, "need to restore metrics from dump")
+	dbDSN := flag.String("d", "", "database dns e.g. 'postgres://user:password@host:port/database?option=value'")
 
 	flag.Parse()
 
@@ -65,11 +80,17 @@ func getConfig() runConfig {
 		}
 	}
 
+	envDSN := os.Getenv("DATABASE_DSN")
+	if envDSN != "" {
+		*dbDSN = envDSN
+	}
+
 	return runConfig{
 		address:      *address,
 		restore:      *restore,
 		dumpFilePath: *dumpFile,
 		dumpInterval: *storageInternal,
+		databaseDSN:  *dbDSN,
 	}
 }
 
@@ -149,26 +170,42 @@ func subscribeToStopSignals() chan os.Signal {
 }
 
 func createRepositoryService(config runConfig) (service.MetricService, context.CancelFunc) {
-	storage := memory.NewMetricRepository()
-
-	fs, err := dumper.NewFileStream(config.dumpFilePath)
-	if err != nil {
-		panic(err)
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
-	svc := srvSvc.NewMetricService(storage)
 
-	if svcDumper, err := dumper.NewFileDumper(ctx, dumper.Config{
-		Timeout: (time.Second * time.Duration(config.dumpInterval)),
-		Restore: config.restore,
-		Service: svc,
-		Stream:  fs,
-	}); err == nil {
-		return svcDumper, cancel
-	} else {
-		panic(err)
+	storage, err := getStorage(ctx, config)
+	if err != nil {
+		logger.Fatalw("can not create storage", "error", err)
 	}
+
+	return srvSvc.NewMetricService(storage), cancel
+}
+
+func getStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
+	if config.databaseDSN == "" {
+		return memoryStorage(ctx, config)
+	}
+	return postgresStorage(ctx, config)
+}
+
+func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
+	if fs, err := dumper.NewFileStream(config.dumpFilePath); err == nil {
+		return dumper.NewFileDumper(ctx, dumper.Config{
+			Timeout: (time.Second * time.Duration(config.dumpInterval)),
+			Restore: config.restore,
+			Storage: memory.NewMetricRepository(),
+			Stream:  fs,
+		})
+	} else {
+		return nil, err
+	}
+}
+
+func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
+	pool, err := pgxpool.New(ctx, config.databaseDSN)
+	if err != nil {
+		return nil, err
+	}
+	return postgresql.NewRepository(pool)
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
@@ -185,9 +222,11 @@ func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.Cance
 func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
 	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+	srv.Register("/updates/", toSlice(http.MethodPost), nil, rest.BatchUpdate(svc))
 	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
 	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
 	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
+	srv.Register("/ping", toSlice(http.MethodGet), nil, rest.Ping(svc))
 }
 
 func toSlice(it ...string) []string {

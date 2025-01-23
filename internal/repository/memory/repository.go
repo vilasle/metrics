@@ -1,9 +1,12 @@
 package memory
 
 import (
+	"context"
+	"errors"
 	"sync"
 
 	"github.com/vilasle/metrics/internal/metric"
+	"github.com/vilasle/metrics/internal/repository"
 )
 
 type gaugeStorage map[string]metric.Metric
@@ -26,13 +29,28 @@ func NewMetricRepository() *MemoryMetricRepository {
 	}
 }
 
-func (r *MemoryMetricRepository) Save(entity metric.Metric) error {
-	return r.getSaver(entity.Type()).save(entity)
+func (r *MemoryMetricRepository) Save(ctx context.Context, entity ...metric.Metric) error {
+	switch len(entity) {
+	case 0:
+		return repository.ErrEmptySetOfMetric
+	case 1:
+		e := entity[0]
+		return r.getSaver(e.Type()).save(e)
+	default:
+		//TODO wrap it
+		return r.saveAll(entity...)
+	}
 }
 
-func (r *MemoryMetricRepository) Get(metricType string, filterName ...string) ([]metric.Metric, error) {
+func (r *MemoryMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
 	return r.getGetter(metricType).get(filterName...)
 }
+
+func (r *MemoryMetricRepository) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (r *MemoryMetricRepository) Close() {}
 
 func (r *MemoryMetricRepository) getSaver(metricType string) saver {
 	if metricType == metric.TypeGauge {
@@ -41,6 +59,17 @@ func (r *MemoryMetricRepository) getSaver(metricType string) saver {
 		return counterSaver{storage: r.counters, mx: r.mxCounter}
 	}
 	return unknownSaver{}
+}
+
+func (r *MemoryMetricRepository) saveAll(entity ...metric.Metric) error {
+	errs := make([]error, 0)
+
+	for _, e := range entity {
+		if err := r.getSaver(e.Type()).save(e); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (r *MemoryMetricRepository) getGetter(metricType string) getter {

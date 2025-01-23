@@ -1,9 +1,9 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	agent "github.com/vilasle/metrics/internal/service"
 )
@@ -11,7 +11,8 @@ import (
 type collectorAgent struct {
 	agent.Collector
 	agent.Sender
-	mx *sync.Mutex
+	mx     *sync.Mutex
+	repeat []time.Duration
 }
 
 func NewCollectorAgent(collector agent.Collector, sender agent.Sender) collectorAgent {
@@ -19,6 +20,11 @@ func NewCollectorAgent(collector agent.Collector, sender agent.Sender) collector
 		Collector: collector,
 		Sender:    sender,
 		mx:        &sync.Mutex{},
+		repeat: []time.Duration{
+			time.Second * 1,
+			time.Second * 3,
+			time.Second * 5,
+		},
 	}
 }
 
@@ -37,17 +43,17 @@ func (a collectorAgent) Report() {
 	}
 }
 
-func (a collectorAgent) report() error {
+func (a collectorAgent) report() (err error) {
 	a.mx.Lock()
 	defer a.mx.Unlock()
-
-	errs := make([]error, 0)
-	for _, metric := range a.Collector.AllMetrics() {
-		if err := a.Sender.Send(metric); err != nil {
-			errs = append(errs, err)
+	for _, d := range a.repeat {
+		if err = a.SendBatch(a.AllMetrics()...); err != nil {
+			time.Sleep(d)
+		} else {
+			break
 		}
 	}
-	return errors.Join(errs...)
+	return err
 }
 
 func (a collectorAgent) resetPoolCounter() {

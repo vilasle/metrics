@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -22,7 +23,7 @@ func (m wrongMetric) Value() string {
 func (m wrongMetric) Type() string {
 	return "wrongMetric"
 }
-func (m wrongMetric) ToJSON() ([]byte, error) {
+func (m wrongMetric) MarshalJSON() ([]byte, error) {
 	panic("not implemented")
 }
 func (m wrongMetric) SetValue(any) error {
@@ -34,6 +35,14 @@ func (m wrongMetric) AddValue(any) error {
 
 func (m wrongMetric) String() string {
 	return "wrongMetric"
+}
+
+func (m wrongMetric) Float64() float64 {
+	return 0
+}
+
+func (m wrongMetric) Int64() int64 {
+	return 0
 }
 
 func TestMetricService_Save(t *testing.T) {
@@ -86,7 +95,7 @@ func TestMetricService_Save(t *testing.T) {
 			s := MetricService{
 				storage: tt.fields.storage,
 			}
-			err := s.Save(tt.args.entity)
+			err := s.Save(context.TODO(), tt.args.entity)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -167,11 +176,11 @@ func TestMetricService_Get(t *testing.T) {
 				storage: tt.fields.storage,
 			}
 			if !tt.wantErr {
-				err := s.Save(tt.want)
+				err := s.Save(context.TODO(), tt.want)
 				require.NoError(t, err)
 			}
 
-			got, err := s.Get(tt.args.metricType, tt.args.name)
+			got, err := s.Get(context.TODO(), tt.args.metricType, tt.args.name)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -221,7 +230,7 @@ func TestMetricService_All(t *testing.T) {
 
 			if !tt.wantErr {
 				for _, m := range tt.input {
-					err := tt.fields.storage.Save(m)
+					err := tt.fields.storage.Save(context.TODO(), m)
 					require.NoError(t, err)
 				}
 			}
@@ -229,7 +238,7 @@ func TestMetricService_All(t *testing.T) {
 			s := MetricService{
 				storage: tt.fields.storage,
 			}
-			got, err := s.All()
+			got, err := s.All(context.TODO())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("MetricService.All() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -277,7 +286,7 @@ func TestMetricService_Stats(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if !tt.wantErr {
 				for _, m := range tt.input {
-					err := tt.fields.storage.Save(m)
+					err := tt.fields.storage.Save(context.TODO(), m)
 					require.NoError(t, err)
 				}
 			}
@@ -285,7 +294,7 @@ func TestMetricService_Stats(t *testing.T) {
 			s := MetricService{
 				storage: tt.fields.storage,
 			}
-			got, err := s.Stats()
+			got, err := s.Stats(context.TODO())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("MetricService.Stats() error = %v, wantErr %v", err, tt.wantErr)
 				return

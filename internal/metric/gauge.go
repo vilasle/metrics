@@ -42,7 +42,7 @@ func (c *gauge) SetValue(val any) error {
 	return nil
 }
 
-func (c gauge) ToJSON() ([]byte, error) {
+func (c gauge) MarshalJSON() ([]byte, error) {
 	metric := struct {
 		ID    string  `json:"id"`
 		MType string  `json:"type"`
@@ -57,6 +57,13 @@ func (c gauge) ToJSON() ([]byte, error) {
 
 func (c gauge) String() string {
 	return fmt.Sprintf("{type: %s; name: %s; value: %f}", c.Type(), c.name, c.value)
+}
+
+func (c gauge) Float64() float64 {
+	return c.value
+}
+func (c gauge) Int64() int64 {
+	return int64(c.value)
 }
 
 func parseGauge(name string, value string) (*gauge, error) {
