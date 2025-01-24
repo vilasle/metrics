@@ -18,12 +18,14 @@ type runConfig struct {
 	endpoint string
 	report   time.Duration
 	poll     time.Duration
+	hashSumKey string
 }
 
 func getConfig() runConfig {
 	endpoint := flag.String("a", "localhost:8080", "endpoint to send metrics")
 	reportSec := flag.Int("r", 10, "timeout(sec) for sending report to server")
 	pollSec := flag.Int("p", 2, "timeout(sec) for polling metrics")
+	hashSumKey := flag.String("k", "", "key for hash sum")
 
 	flag.Parse()
 
@@ -50,10 +52,16 @@ func getConfig() runConfig {
 		}
 	}
 
+	envHashSumKey := os.Getenv("KEY")
+	if envHashSumKey != "" {
+		hashSumKey = &envHashSumKey
+	}
+
 	return runConfig{
 		endpoint: *endpoint,
 		poll:     time.Second * time.Duration(*pollSec),
 		report:   time.Second * time.Duration(*reportSec),
+		hashSumKey: *hashSumKey,
 	}
 }
 
@@ -102,7 +110,7 @@ func main() {
 
 	fmt.Println("press ctrl+c to exit")
 
-	sender, err := json.NewHTTPJsonSender(updateAddress)
+	sender, err := json.NewHTTPJsonSender(updateAddress, conf.hashSumKey)
 	if err != nil {
 		fmt.Printf("can not create sender by reason %v", err)
 		os.Exit(2)
