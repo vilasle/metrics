@@ -31,6 +31,7 @@ type runConfig struct {
 	dumpInterval int64
 	restore      bool
 	databaseDSN  string
+	hashSumKey   string
 }
 
 func (c runConfig) String() string {
@@ -53,6 +54,7 @@ func getConfig() runConfig {
 	dumpFile := flag.String("f", "a.metrics", "dump file")
 	restore := flag.Bool("r", true, "need to restore metrics from dump")
 	dbDSN := flag.String("d", "", "database dns e.g. 'postgres://user:password@host:port/database?option=value'")
+	hashSumKey := flag.String("k", "", "key for hash sum")
 
 	flag.Parse()
 
@@ -85,12 +87,18 @@ func getConfig() runConfig {
 		*dbDSN = envDSN
 	}
 
+	envHashSumKey := os.Getenv("HASH_SUM_KEY")
+	if envHashSumKey != "" {
+		*hashSumKey = envHashSumKey
+	}
+
 	return runConfig{
 		address:      *address,
 		restore:      *restore,
 		dumpFilePath: *dumpFile,
 		dumpInterval: *storageInternal,
 		databaseDSN:  *dbDSN,
+		hashSumKey:   *hashSumKey,
 	}
 }
 
@@ -211,7 +219,9 @@ func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRe
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
 	server := rest.NewHTTPServer(config.address,
 		mdw.WithLogger(),
-		mdw.Compress("application/json", "text/html"))
+		mdw.Compress("application/json", "text/html"),
+		mdw.CalculateHashSum(config.hashSumKey),
+		mdw.HashKey(config.hashSumKey))
 
 	svc, cancel := createRepositoryService(config)
 

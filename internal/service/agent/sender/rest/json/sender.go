@@ -1,6 +1,7 @@
 package json
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -134,7 +135,8 @@ func (s HTTPJsonSender) addHashSumHeader(req *http.Request, pC *[]byte) error {
 		return err
 	}
 
-	hash := fmt.Sprintf("%x", (w.Sum(nil)))
+	hash := base64.URLEncoding.EncodeToString(w.Sum(nil))
+
 	req.Header.Add("HashSHA256", hash)
 	return nil
 }
