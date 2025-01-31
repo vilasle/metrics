@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,9 +16,9 @@ import (
 )
 
 type runConfig struct {
-	endpoint string
-	report   time.Duration
-	poll     time.Duration
+	endpoint   string
+	report     time.Duration
+	poll       time.Duration
 	hashSumKey string
 }
 
@@ -25,7 +26,7 @@ func getConfig() runConfig {
 	endpoint := flag.String("a", "localhost:8080", "endpoint to send metrics")
 	reportSec := flag.Int("r", 10, "timeout(sec) for sending report to server")
 	pollSec := flag.Int("p", 2, "timeout(sec) for polling metrics")
-	hashSumKey := flag.String("k", "", "key for hash sum")
+	hashSumKey := flag.String("k", "", "path to key for hash sum")
 
 	flag.Parse()
 
@@ -58,9 +59,9 @@ func getConfig() runConfig {
 	}
 
 	return runConfig{
-		endpoint: *endpoint,
-		poll:     time.Second * time.Duration(*pollSec),
-		report:   time.Second * time.Duration(*reportSec),
+		endpoint:   *endpoint,
+		poll:       time.Second * time.Duration(*pollSec),
+		report:     time.Second * time.Duration(*reportSec),
 		hashSumKey: *hashSumKey,
 	}
 }
@@ -104,14 +105,19 @@ func main() {
 
 	updateAddress := fmt.Sprintf("http://%s/updates/", conf.endpoint)
 
+	hashKey, err := getHashKeyFromFile(conf.hashSumKey)
+	if err != nil {
+		fmt.Printf("can not read key from file %s by reason %v\n", conf.hashSumKey, err)
+	}
+
 	fmt.Printf("sending metrics to %s\n", updateAddress)
 	fmt.Printf("pulling metrics every %d sec\n", conf.poll/time.Second)
 	fmt.Printf("sending report every %d sec\n", conf.report/time.Second)
-	fmt.Printf("using key %s\n", conf.hashSumKey)
+	fmt.Printf("using key %s\n", hashKey)
 
 	fmt.Println("press ctrl+c to exit")
 
-	sender, err := json.NewHTTPJsonSender(updateAddress, conf.hashSumKey)
+	sender, err := json.NewHTTPJsonSender(updateAddress, hashKey)
 	if err != nil {
 		fmt.Printf("can not create sender by reason %v", err)
 		os.Exit(2)
@@ -132,6 +138,20 @@ func main() {
 			reportTicker.Stop()
 			run = false
 		}
+	}
+}
+
+func getHashKeyFromFile(path string) (string, error) {
+	fd, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+
+	if content, err := io.ReadAll(fd); err == nil {
+		return string(content), err
+	} else {
+		return "", err
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -217,11 +218,17 @@ func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRe
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
+
+	hash, err := getHashKeyFromFile(config.hashSumKey)
+	if err != nil {
+		logger.Error("can not get hash key from file", "error", err)
+	}
+
 	server := rest.NewHTTPServer(config.address,
 		mdw.WithLogger(),
 		mdw.Compress("application/json", "text/html"),
-		mdw.CalculateHashSum(config.hashSumKey),
-		mdw.HashKey(config.hashSumKey))
+		mdw.CalculateHashSum(hash),
+		mdw.HashKey(hash))
 
 	svc, cancel := createRepositoryService(config)
 
@@ -241,4 +248,18 @@ func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 
 func toSlice(it ...string) []string {
 	return it
+}
+
+func getHashKeyFromFile(path string) (string, error) {
+	fd, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+
+	if content, err := io.ReadAll(fd); err == nil {
+		return string(content), err
+	} else {
+		return "", err
+	}
 }
