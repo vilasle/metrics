@@ -105,13 +105,14 @@ func main() {
 		if err := counter.AddValue(1); err != nil {
 			fmt.Printf("can not add value to counter %v\n", err)
 		}
+		c.SetValue(counter)
 	})
 
 	c.RegisterEvent(func(c *collector.RuntimeCollector) {
 		gauge := c.GetGaugeValue("RandomValue")
 		gauge.SetValue(rand.Float64())
 
-		c.SetGaugeValue(gauge)
+		c.SetValue(gauge)
 
 	})
 	c.RegisterEvent(collectExtraMetrics)
@@ -212,7 +213,7 @@ func collectExtraMetrics(c *collector.RuntimeCollector) {
 	close(metricCh)
 
 	for m := range metricCh {
-		c.SetGaugeValue(m)
+		c.SetValue(m)
 	}
 
 }

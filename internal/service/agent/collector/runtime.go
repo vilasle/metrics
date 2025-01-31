@@ -134,9 +134,14 @@ func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
 	return metric.NewGaugeMetric(name, 0)
 }
 
-func (c *RuntimeCollector) SetGaugeValue(gauge metric.Metric) {
+func (c *RuntimeCollector) SetValue(value metric.Metric) {
 	c.mxMetric.Lock()
-	c.gauges[gauge.Name()] = gauge
+	switch value.Type() {
+	case metric.TypeGauge:
+		c.gauges[value.Name()] = value
+	case metric.TypeCounter:
+		c.counters[value.Name()] = value
+	}
 	c.mxMetric.Unlock()
 }
 
