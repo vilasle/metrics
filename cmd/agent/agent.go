@@ -39,7 +39,6 @@ func NewCollectorAgent(collector agent.Collector, sender agent.Sender, delaySett
 }
 
 func (a collectorAgent) Run(ctx context.Context) {
-
 	newCtx, cancel := context.WithCancel(ctx)
 
 	go a.CollectWithContext(newCtx)
@@ -48,21 +47,6 @@ func (a collectorAgent) Run(ctx context.Context) {
 	<-ctx.Done()
 	fmt.Println("got cancel from main")
 	cancel()
-
-	// for run := true; run; {
-	// 	select {
-	// 	case <-pollTicker.C:
-	// 		agent.Collect()
-	// 	case <-reportTicker.C:
-	// 		reportTicker.Stop()
-	// 		agent.Report()
-	// 		reportTicker.Reset(reportInterval)
-	// 	case <-sigint:
-	// 		pollTicker.Stop()
-	// 		reportTicker.Stop()
-	// 		run = false
-	// 	}
-	// }
 }
 
 func (a collectorAgent) Collect() {
