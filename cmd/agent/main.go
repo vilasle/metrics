@@ -143,8 +143,6 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go agent.Run(ctx)
-	_ = ctx
-	_ = agent
 
 	<-sigint
 	fmt.Println("stopping agent")
