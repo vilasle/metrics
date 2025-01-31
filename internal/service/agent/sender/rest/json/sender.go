@@ -135,10 +135,12 @@ func (s HTTPJsonSender) addHashSumHeader(req *http.Request, pC *[]byte) error {
 		return err
 	}
 
-	hash := base64.URLEncoding.EncodeToString(w.Sum(nil))
+	srcHash := w.Sum(nil)
+	hash := base64.URLEncoding.EncodeToString(srcHash)
 
 	req.Header.Add("HashSHA256", hash)
-	fmt.Printf("request hash-sum = %s\n", hash)
+	fmt.Printf("request src hash-sum = %v\n", srcHash)
+	fmt.Printf("request base64 hash-sum = %s\n", hash)
 
 	return nil
 }

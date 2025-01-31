@@ -182,14 +182,14 @@ func checkHashSum(pC *[]byte, req *http.Request) (bool, error) {
 		return false, err
 	}
 
-	logger.Debug("source hash", "hash", string(reqHash))
+	logger.Debug("source hash", "hash", reqHash)
 
 	hashSumFromContext, err := getHashSumWithKey(pC, sign)
 	if err != nil {
 		return false, err
 	}
 
-	logger.Debug("generated hash", "hash", string(hashSumFromContext))
+	logger.Debug("generated hash", "hash", hashSumFromContext)
 
 	return hmac.Equal(reqHash, hashSumFromContext), nil
 }
