@@ -35,8 +35,8 @@ type runConfig struct {
 }
 
 func (c runConfig) String() string {
-	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDSN: %s",
-		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDSN)
+	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDSN: %s; key for hash sum: %s",
+		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDSN, c.hashSumKey)
 }
 
 func (c runConfig) DNS() (string, error) {
