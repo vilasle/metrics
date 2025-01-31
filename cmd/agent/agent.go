@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -11,11 +12,18 @@ import (
 type collectorAgent struct {
 	agent.Collector
 	agent.Sender
-	mx     *sync.Mutex
-	repeat []time.Duration
+	mx           *sync.Mutex
+	repeat       []time.Duration
+	reportDelay  time.Duration
+	collectDelay time.Duration
 }
 
-func NewCollectorAgent(collector agent.Collector, sender agent.Sender) collectorAgent {
+type delay struct {
+	report  time.Duration
+	collect time.Duration
+}
+
+func NewCollectorAgent(collector agent.Collector, sender agent.Sender, delaySetting delay) collectorAgent {
 	return collectorAgent{
 		Collector: collector,
 		Sender:    sender,
@@ -25,7 +33,20 @@ func NewCollectorAgent(collector agent.Collector, sender agent.Sender) collector
 			time.Second * 3,
 			time.Second * 5,
 		},
+		reportDelay:  delaySetting.report,
+		collectDelay: delaySetting.collect,
 	}
+}
+
+func (a collectorAgent) Run(ctx context.Context) {
+	newCtx, cancel := context.WithCancel(ctx)
+
+	go a.CollectWithContext(newCtx)
+	go a.ReportWithContext(newCtx)
+
+	<-ctx.Done()
+	fmt.Println("got cancel from main")
+	cancel()
 }
 
 func (a collectorAgent) Collect() {
@@ -33,6 +54,20 @@ func (a collectorAgent) Collect() {
 	defer a.mx.Unlock()
 
 	a.Collector.Collect()
+}
+
+func (a collectorAgent) CollectWithContext(ctx context.Context) {
+	t := time.NewTicker(a.collectDelay)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("collector got cancel signal")
+			return
+		case <-t.C:
+			a.Collector.Collect()
+		}
+	}
 }
 
 func (a collectorAgent) Report() {
@@ -43,11 +78,27 @@ func (a collectorAgent) Report() {
 	}
 }
 
+func (a collectorAgent) ReportWithContext(ctx context.Context) {
+	t := time.NewTicker(a.reportDelay)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("reporter got cancel signal")
+			return
+		case <-t.C:
+			t.Stop()
+			a.report()
+			t.Reset(a.reportDelay)
+		}
+	}
+}
+
 func (a collectorAgent) report() (err error) {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 	for _, d := range a.repeat {
-		if err = a.SendBatch(a.AllMetrics()...); err != nil {
+		if err = a.SendWithLimit(a.AllMetrics()...); err != nil {
 			time.Sleep(d)
 		} else {
 			break

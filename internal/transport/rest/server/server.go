@@ -21,6 +21,7 @@ type HTTPServer struct {
 func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTTPServer {
 	mux := chi.NewRouter()
 	mux.Use(middleware.Recoverer)
+	mux.Use(middleware.RequestID)
 	for _, m := range options {
 		mux.Use(m)
 	}

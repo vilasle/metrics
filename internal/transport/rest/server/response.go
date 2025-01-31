@@ -84,6 +84,7 @@ func errorBadRequest(err error) bool {
 		metric.ErrConvertingRawValue,
 		metric.ErrEmptyValue,
 		metric.ErrUnknownMetricType,
+		ErrInvalidHashSum,
 	)
 }
 func errorNotFound(err error) bool {
