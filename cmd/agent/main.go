@@ -119,7 +119,7 @@ func main() {
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
 
-	updateAddress := fmt.Sprintf("http://%s/updates/", conf.endpoint)
+	updateAddress := fmt.Sprintf("http://%s/update/", conf.endpoint)
 
 	hashKey, err := getHashKeyFromFile(conf.hashSumKey)
 	if err != nil {
