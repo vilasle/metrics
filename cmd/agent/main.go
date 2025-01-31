@@ -107,6 +107,7 @@ func main() {
 	fmt.Printf("sending metrics to %s\n", updateAddress)
 	fmt.Printf("pulling metrics every %d sec\n", conf.poll/time.Second)
 	fmt.Printf("sending report every %d sec\n", conf.report/time.Second)
+	fmt.Printf("using key %s\n", conf.hashSumKey)
 
 	fmt.Println("press ctrl+c to exit")
 

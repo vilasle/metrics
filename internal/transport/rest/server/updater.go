@@ -159,7 +159,7 @@ func handleUpdateMetricsAsBatch(svc service.MetricService, r *http.Request) Resp
 func checkHashSum(pC *[]byte, req *http.Request) (bool, error) {
 	key := req.Context().Value(middleware.HashContextKey)
 	hashSum := req.Header.Get("HashSHA256")
-	
+
 	//nothing check
 	if hashSum == "" {
 		return true, nil
@@ -175,15 +175,21 @@ func checkHashSum(pC *[]byte, req *http.Request) (bool, error) {
 		return true, nil
 	}
 
+	logger.Debug("check key", "key", sign)
+
 	reqHash, err := base64.URLEncoding.DecodeString(hashSum)
 	if err != nil {
 		return false, err
 	}
 
+	logger.Debug("source hash", "hash", string(reqHash))
+
 	hashSumFromContext, err := getHashSumWithKey(pC, sign)
 	if err != nil {
 		return false, err
 	}
+
+	logger.Debug("generated hash", "hash", string(hashSumFromContext))
 
 	return hmac.Equal(reqHash, hashSumFromContext), nil
 }
