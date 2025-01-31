@@ -19,18 +19,45 @@ type HTTPJsonSender struct {
 	*url.URL
 	httpClient
 	hashSumKey string
+	req        chan metric.Metric
+	resp       chan error
+	rateLimit  int
 }
 
-func NewHTTPJsonSender(addr string, hashSumKey string) (HTTPJsonSender, error) {
+func NewHTTPJsonSender(addr string, hashSumKey string, rateLimit int) (HTTPJsonSender, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
 		return HTTPJsonSender{}, err
 	}
-	return HTTPJsonSender{
+	s := HTTPJsonSender{
 		URL:        u,
 		httpClient: newClient(false),
 		hashSumKey: hashSumKey,
-	}, nil
+		req:        make(chan metric.Metric, rateLimit),
+		resp:       make(chan error, rateLimit),
+		rateLimit:  rateLimit,
+	}
+
+	s.runWorkers(rateLimit)
+
+	return s, nil
+}
+
+func (s HTTPJsonSender) runWorkers(workersQty int) {
+	rate := workersQty
+	if rate < 1 {
+		rate = 1
+	}
+
+	for i := 0; i < rate; i++ {
+		go s.runWorker()
+	}
+}
+
+func (s HTTPJsonSender) runWorker() {
+	for value := range s.req {
+		s.resp <- s.Send(value)
+	}
 }
 
 func (s HTTPJsonSender) Send(value metric.Metric) error {
@@ -76,6 +103,27 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 	}
 
 	return err
+}
+
+func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
+	limit := s.rateLimit
+	errs := make([]error, 0)
+
+	for _, v := range value {
+		s.req <- v
+		limit--
+
+		if limit > 0 {
+			continue
+		} 
+
+		for i := 0; i < s.rateLimit; i++ {
+			errs = append(errs, <-s.resp)
+		}
+		limit = s.rateLimit
+	}
+
+	return errors.Join(errs...)
 }
 
 func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {

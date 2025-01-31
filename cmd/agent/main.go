@@ -1,16 +1,22 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	"math/rand"
 
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/collector"
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest/json"
 )
@@ -20,6 +26,7 @@ type runConfig struct {
 	report     time.Duration
 	poll       time.Duration
 	hashSumKey string
+	rateLimit  int
 }
 
 func getConfig() runConfig {
@@ -27,6 +34,7 @@ func getConfig() runConfig {
 	reportSec := flag.Int("r", 10, "timeout(sec) for sending report to server")
 	pollSec := flag.Int("p", 2, "timeout(sec) for polling metrics")
 	hashSumKey := flag.String("k", "", "path to key for hash sum")
+	rateLimit := flag.Int("l", 1, "rate limit for sending metrics")
 
 	flag.Parse()
 
@@ -58,11 +66,21 @@ func getConfig() runConfig {
 		hashSumKey = &envHashSumKey
 	}
 
+	envRateLimit := os.Getenv("RATE_LIMIT")
+	if envRateLimit != "" {
+		if v, err := strconv.Atoi(envRateLimit); err == nil {
+			rateLimit = &v
+		} else {
+			fmt.Printf("can not parse RATE_LIMIT %s. will use value %d\n", envReportSec, *rateLimit)
+		}
+	}
+
 	return runConfig{
 		endpoint:   *endpoint,
 		poll:       time.Second * time.Duration(*pollSec),
 		report:     time.Second * time.Duration(*reportSec),
 		hashSumKey: *hashSumKey,
+		rateLimit:  *rateLimit,
 	}
 }
 
@@ -96,12 +114,10 @@ func main() {
 		c.SetGaugeValue(gauge)
 
 	})
+	c.RegisterEvent(collectExtraMetrics)
 
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
-
-	pollTicker := time.NewTicker(pollInterval)
-	reportTicker := time.NewTicker(reportInterval)
 
 	updateAddress := fmt.Sprintf("http://%s/updates/", conf.endpoint)
 
@@ -117,28 +133,24 @@ func main() {
 
 	fmt.Println("press ctrl+c to exit")
 
-	sender, err := json.NewHTTPJsonSender(updateAddress, hashKey)
+	sender, err := json.NewHTTPJsonSender(updateAddress, hashKey, conf.rateLimit)
 	if err != nil {
 		fmt.Printf("can not create sender by reason %v", err)
 		os.Exit(2)
 	}
 
-	agent := NewCollectorAgent(c, sender)
+	agent := NewCollectorAgent(c, sender, delay{collect: pollInterval, report: reportInterval})
 
-	for run := true; run; {
-		select {
-		case <-pollTicker.C:
-			agent.Collect()
-		case <-reportTicker.C:
-			reportTicker.Stop()
-			agent.Report()
-			reportTicker.Reset(reportInterval)
-		case <-sigint:
-			pollTicker.Stop()
-			reportTicker.Stop()
-			run = false
-		}
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go agent.Run(ctx)
+	_ = ctx
+	_ = agent
+
+	<-sigint
+	fmt.Println("stopping agent")
+	cancel()
+
+	time.Sleep(time.Millisecond * 1500)
 }
 
 func getHashKeyFromFile(path string) (string, error) {
@@ -184,5 +196,52 @@ func defaultGaugeMetrics() []string {
 		"StackSys",
 		"Sys",
 		"TotalAlloc",
+	}
+}
+
+func collectExtraMetrics(c *collector.RuntimeCollector) {
+	wg := &sync.WaitGroup{}
+
+	metricCh := make(chan metric.Metric, 2+runtime.NumCPU())
+
+	wg.Add(2)
+
+	go collectExtraMemMetrics(wg, metricCh)
+	go collectExtraCPUMetrics(wg, metricCh)
+
+	wg.Wait()
+
+	close(metricCh)
+
+	for m := range metricCh {
+		c.SetGaugeValue(m)
+	}
+
+}
+
+func collectExtraMemMetrics(wg *sync.WaitGroup, metricCh chan<- metric.Metric) {
+	defer wg.Done()
+
+	if v, err := mem.VirtualMemory(); err == nil {
+		metricCh <- metric.NewGaugeMetric("TotalMemory", float64(v.Total))
+		metricCh <- metric.NewGaugeMetric("FreeMemory", float64(v.Free))
+	} else {
+		fmt.Printf("collection memory's metric was failed by reason %v\n", err)
+	}
+}
+
+func collectExtraCPUMetrics(wg *sync.WaitGroup, metricCh chan<- metric.Metric) {
+	defer wg.Done()
+
+	result, err := cpu.Percent((time.Second * 3), true)
+	if err != nil {
+		fmt.Printf("collection cpu usage was failed by reason %v\n", err)
+		return
+	}
+
+	format := "CPUutilization%d"
+	for i, v := range result {
+		m := fmt.Sprintf(format, i)
+		metricCh <- metric.NewGaugeMetric(m, v)
 	}
 }
