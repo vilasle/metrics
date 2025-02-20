@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,11 +32,12 @@ type runConfig struct {
 	dumpInterval int64
 	restore      bool
 	databaseDSN  string
+	hashSumKey   string
 }
 
 func (c runConfig) String() string {
-	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDSN: %s",
-		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDSN)
+	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDSN: %s; key for hash sum: %s",
+		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDSN, c.hashSumKey)
 }
 
 func (c runConfig) DNS() (string, error) {
@@ -53,6 +55,7 @@ func getConfig() runConfig {
 	dumpFile := flag.String("f", "a.metrics", "dump file")
 	restore := flag.Bool("r", true, "need to restore metrics from dump")
 	dbDSN := flag.String("d", "", "database dns e.g. 'postgres://user:password@host:port/database?option=value'")
+	hashSumKey := flag.String("k", "", "key for hash sum")
 
 	flag.Parse()
 
@@ -85,12 +88,18 @@ func getConfig() runConfig {
 		*dbDSN = envDSN
 	}
 
+	envHashSumKey := os.Getenv("HASH_SUM_KEY")
+	if envHashSumKey != "" {
+		*hashSumKey = envHashSumKey
+	}
+
 	return runConfig{
 		address:      *address,
 		restore:      *restore,
 		dumpFilePath: *dumpFile,
 		dumpInterval: *storageInternal,
 		databaseDSN:  *dbDSN,
+		hashSumKey:   *hashSumKey,
 	}
 }
 
@@ -101,7 +110,7 @@ func main() {
 		}
 	}()
 
-	logger.Init(os.Stdout, true)
+	logger.Init(os.Stdout, false)
 
 	defer logger.Close()
 
@@ -209,9 +218,17 @@ func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRe
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
+
+	hash, err := getHashKeyFromFile(config.hashSumKey)
+	if err != nil {
+		logger.Error("can not get hash key from file", "error", err)
+	}
+
 	server := rest.NewHTTPServer(config.address,
 		mdw.WithLogger(),
-		mdw.Compress("application/json", "text/html"))
+		mdw.Compress("application/json", "text/html"),
+		mdw.CalculateHashSum(hash),
+		mdw.HashKey(hash))
 
 	svc, cancel := createRepositoryService(config)
 
@@ -231,4 +248,18 @@ func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 
 func toSlice(it ...string) []string {
 	return it
+}
+
+func getHashKeyFromFile(path string) (string, error) {
+	fd, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+
+	if content, err := io.ReadAll(fd); err == nil {
+		return string(content), err
+	} else {
+		return "", err
+	}
 }

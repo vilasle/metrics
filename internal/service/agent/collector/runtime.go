@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"sync"
 
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
@@ -17,6 +18,7 @@ type RuntimeCollector struct {
 	gauges   map[string]metric.Metric
 	metrics  []string
 	events   []eventHandler
+	mxMetric *sync.Mutex
 }
 
 func NewRuntimeCollector() *RuntimeCollector {
@@ -25,6 +27,7 @@ func NewRuntimeCollector() *RuntimeCollector {
 		gauges:   make(map[string]metric.Metric, 0),
 		metrics:  make([]string, 0),
 		events:   make([]eventHandler, 0),
+		mxMetric: &sync.Mutex{},
 	}
 }
 
@@ -53,6 +56,7 @@ func (c *RuntimeCollector) Collect() {
 	if len(c.metrics) == 0 {
 		return
 	}
+	c.mxMetric.Lock()
 
 	ms := runtime.MemStats{}
 	runtime.ReadMemStats(&ms)
@@ -63,7 +67,7 @@ func (c *RuntimeCollector) Collect() {
 	for _, v := range c.metrics {
 		fld := value.FieldByName(v)
 		if !fld.IsValid() {
-			return
+			break
 		}
 
 		switch fld.Kind() {
@@ -78,8 +82,9 @@ func (c *RuntimeCollector) Collect() {
 			fmt.Printf("unsupported type %s\n", fld.Kind().String())
 		}
 	}
-	c.execEvents()
+	c.mxMetric.Unlock()
 
+	c.execEvents()
 }
 
 func (c *RuntimeCollector) execEvents() {
@@ -89,6 +94,9 @@ func (c *RuntimeCollector) execEvents() {
 }
 
 func (c *RuntimeCollector) AllMetrics() []metric.Metric {
+	c.mxMetric.Lock()
+	defer c.mxMetric.Unlock()
+
 	metrics := make([]metric.Metric, len(c.gauges)+len(c.counters))
 
 	var i int
@@ -106,6 +114,9 @@ func (c *RuntimeCollector) AllMetrics() []metric.Metric {
 }
 
 func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
+	c.mxMetric.Lock()
+	defer c.mxMetric.Unlock()
+
 	if v, ok := c.counters[name]; ok {
 		return v
 	} else {
@@ -114,17 +125,30 @@ func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 }
 
 func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
+	c.mxMetric.Lock()
+	defer c.mxMetric.Unlock()
+
 	if v, ok := c.gauges[name]; ok {
 		return v
 	}
 	return metric.NewGaugeMetric(name, 0)
 }
 
-func (c *RuntimeCollector) SetGaugeValue(gauge metric.Metric) {
-	c.gauges[gauge.Name()] = gauge
+func (c *RuntimeCollector) SetValue(value metric.Metric) {
+	c.mxMetric.Lock()
+	switch value.Type() {
+	case metric.TypeGauge:
+		c.gauges[value.Name()] = value
+	case metric.TypeCounter:
+		c.counters[value.Name()] = value
+	}
+	c.mxMetric.Unlock()
 }
 
 func (c *RuntimeCollector) ResetCounter(counterName string) {
 	m := metric.NewCounterMetric(counterName, 0)
+
+	c.mxMetric.Lock()
 	c.counters[counterName] = m
+	c.mxMetric.Unlock()
 }
