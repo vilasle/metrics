@@ -13,7 +13,7 @@ import (
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service"
-	middleware "github.com/vilasle/metrics/internal/transport/rest/middlieware"
+	middleware "github.com/vilasle/metrics/internal/transport/rest/middleware"
 )
 
 type rawData struct {

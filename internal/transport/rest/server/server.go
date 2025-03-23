@@ -8,30 +8,32 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
+	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 )
 
 type HTTPServer struct {
-	srv *http.Server
-	mux *chi.Mux
-	//FIXME use atomic
+	srv     *http.Server
+	mux     *chi.Mux
 	running atomic.Bool
 }
 
-func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTTPServer {
+func NewHTTPServer(addr string, middlewareOptions ...func(http.Handler) http.Handler) *HTTPServer {
 	mux := chi.NewRouter()
+
 	mux.Use(middleware.Recoverer)
 	mux.Use(middleware.RequestID)
-	for _, m := range options {
+	for _, m := range middlewareOptions {
 		mux.Use(m)
 	}
-	// middleware.Compressor
+
+	mux.Mount("/debug", middleware.Profiler())
+
 	srv := &HTTPServer{
 		srv: &http.Server{
 			Addr:         addr,
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
-			IdleTimeout:  60 * time.Second,
+			ReadTimeout:  60 * time.Second,
+			WriteTimeout: 60 * time.Second,
+			IdleTimeout:  120 * time.Second,
 		},
 		mux:     mux,
 		running: atomic.Bool{},

@@ -22,7 +22,7 @@ import (
 	"github.com/vilasle/metrics/internal/repository/memory/dumper"
 	"github.com/vilasle/metrics/internal/repository/postgresql"
 
-	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
+	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
 
@@ -218,17 +218,17 @@ func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRe
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
+	middlewares := make([]func(http.Handler) http.Handler, 0, 4)
+	middlewares = append(middlewares, mdw.WithLogger(), mdw.Compress("application/json", "text/html"))
 
 	hash, err := getHashKeyFromFile(config.hashSumKey)
 	if err != nil {
 		logger.Error("can not get hash key from file", "error", err)
+	} else {
+		middlewares = append(middlewares, mdw.CalculateHashSum(hash), mdw.HashKey(hash))
 	}
 
-	server := rest.NewHTTPServer(config.address,
-		mdw.WithLogger(),
-		mdw.Compress("application/json", "text/html"),
-		mdw.CalculateHashSum(hash),
-		mdw.HashKey(hash))
+	server := rest.NewHTTPServer(config.address, middlewares...)
 
 	svc, cancel := createRepositoryService(config)
 
@@ -244,6 +244,7 @@ func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
 	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
 	srv.Register("/ping", toSlice(http.MethodGet), nil, rest.Ping(svc))
+
 }
 
 func toSlice(it ...string) []string {
