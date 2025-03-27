@@ -237,18 +237,13 @@ func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.Cance
 }
 
 func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
-	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
-	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
-	srv.Register("/updates/", toSlice(http.MethodPost), nil, rest.BatchUpdate(svc))
-	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
-	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
-	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
-	srv.Register("/ping", toSlice(http.MethodGet), nil, rest.Ping(svc))
-
-}
-
-func toSlice(it ...string) []string {
-	return it
+	srv.Register("/", rest.DisplayAllMetrics(svc), http.MethodGet)
+	srv.Register("/ping", rest.Ping(svc), http.MethodGet)
+	srv.Register("/value/", rest.DisplayMetric(svc), http.MethodPost)
+	srv.Register("/update/", rest.UpdateMetric(svc), http.MethodPost)
+	srv.Register("/updates/", rest.BatchUpdate(svc), http.MethodPost)
+	srv.Register("/value/{type}/{name}", rest.DisplayMetric(svc), http.MethodGet)
+	srv.Register("/update/{type}/{name}/{value}", rest.UpdateMetric(svc), http.MethodPost)
 }
 
 func getHashKeyFromFile(path string) (string, error) {

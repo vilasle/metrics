@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 )
 
 type HTTPServer struct {
@@ -21,7 +20,6 @@ func NewHTTPServer(addr string, middlewareOptions ...func(http.Handler) http.Han
 	mux := chi.NewRouter()
 
 	mux.Use(middleware.Recoverer)
-	mux.Use(middleware.RequestID)
 	for _, m := range middlewareOptions {
 		mux.Use(m)
 	}
@@ -43,17 +41,15 @@ func NewHTTPServer(addr string, middlewareOptions ...func(http.Handler) http.Han
 	return srv
 }
 
-func (s *HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.Handler) {
-	s.mux.Route(path, func(r chi.Router) {
-		if len(methods) > 0 {
-			r.Use(mdw.AllowedMethods(methods...))
-		}
+func (s *HTTPServer) Register(path string, handler http.Handler, methods ...string) {
+	if len(methods) == 0 {
+		s.mux.Handle(path, handler)
+		return
+	}
 
-		if len(contentTypes) > 0 {
-			r.Use(mdw.AllowedContentType(contentTypes...))
-		}
-		r.Handle("/", handler)
-	})
+	for _, method := range methods {
+		s.mux.Method(method, path, handler)
+	}
 }
 
 func (s *HTTPServer) Start() error {
