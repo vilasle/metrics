@@ -148,6 +148,17 @@ func Test_counter_AddValue(t *testing.T) {
 			want: 3,
 		},
 		{
+			name: "add value to counter (1)",
+			fields: fields{
+				name:  "test",
+				value: 1,
+			},
+			args: args{
+				val: int(2),
+			},
+			want: 3,
+		},
+		{
 			name: "add value to counter: incorrect value",
 			fields: fields{
 				name:  "test",
@@ -171,9 +182,9 @@ func Test_counter_AddValue(t *testing.T) {
 
 			if tt.wantErr {
 				assert.Error(t, err)
-			} else if !reflect.DeepEqual(c.value, tt.want) {
-				t.Errorf("counter.AddValue() = %v, want %v", c.value, tt.want)
-			}
+				return
+			} 
+			assert.Equal(t, c.value, tt.want)
 		})
 	}
 }
@@ -281,5 +292,111 @@ func Test_counter_ToJSON(t *testing.T) {
 				t.Errorf("counter.ToJSON() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func Test_counter_String(t *testing.T) {
+	tests := []struct {
+		name    string
+		metrics []counter
+		wants   []string
+	}{
+		{
+			name: "counter string format",
+			metrics: []counter{
+				{
+					name:  "test1",
+					value: 123456,
+				},
+				{
+					name:  "test2",
+					value: 123,
+				},
+				{
+					name:  "test3",
+					value: 1,
+				},
+			},
+			wants: []string{
+				"{type: counter; name: test1; value: 123456}",
+				"{type: counter; name: test2; value: 123}",
+				"{type: counter; name: test3; value: 1}",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		for i, m := range tt.metrics {
+			got := m.String()
+			assert.Equal(t, tt.wants[i], got)
+		}
+	}
+
+}
+
+func Test_counter_Float64(t *testing.T){
+	tests := []struct {
+		name    string
+		metrics []counter
+		wants   []float64
+	}{
+		{
+			name: "counter get float64 value",
+			metrics: []counter{
+				{
+					name:  "test1",
+					value: 123456,
+				},
+				{
+					name:  "test2",
+					value: 123,
+				},
+				{
+					name:  "test3",
+					value: 1,
+				},
+			},
+			wants: []float64{123456,123,1},
+		},
+	}
+
+	for _, tt := range tests {
+		for i, m := range tt.metrics {
+			assert.Equal(t, tt.wants[i], m.Float64())
+		}
+	}
+}
+
+
+func Test_counter_Int64(t *testing.T){
+	tests := []struct {
+		name    string
+		metrics []counter
+		wants   []int64
+	}{
+		{
+			name: "counter get int64 value",
+			metrics: []counter{
+				{
+					name:  "test1",
+					value: 123456,
+				},
+				{
+					name:  "test2",
+					value: 123,
+				},
+				{
+					name:  "test3",
+					value: 1,
+				},
+			},
+			wants: []int64{123456,123,1},
+		},
+	}
+
+	for _, tt := range tests {
+		for i, m := range tt.metrics {
+			assert.Equal(t, tt.wants[i], m.Int64())
+		}
 	}
 }

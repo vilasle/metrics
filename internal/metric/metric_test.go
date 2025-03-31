@@ -398,7 +398,7 @@ func TestFromJSON(t *testing.T) {
 			args: args{
 				content: []byte(`{"id":"test1","type":"gauge","delta": 1231}`),
 			},
-			want:    &gauge{
+			want: &gauge{
 				name:  "test1",
 				value: 0,
 			},
@@ -439,4 +439,174 @@ func TestFromJSON(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFromJSONArray(t *testing.T) {
+
+	tests := []struct {
+		name    string
+		input   []byte
+		want    []Metric
+		wantErr bool
+	}{
+		{
+			name: "success parsing",
+			input: []byte(`
+				[
+					{
+						"id": "gauge1",
+						"type": "gauge",
+						"value": 1.15
+					},
+					{
+						"id": "gauge2",
+						"type": "gauge",
+						"value": 1123.15
+					},
+					{
+						"id": "counter1",
+						"type": "counter",
+						"delta": 15
+					},
+					{
+						"id": "counter2",
+						"type": "counter",
+						"delta": 15234
+					}
+				]`),
+			want: []Metric{
+				&gauge{
+					name:  "gauge1",
+					value: 1.15,
+				},
+				&gauge{
+					name:  "gauge2",
+					value: 1123.15,
+				},
+				&counter{
+					name:  "counter1",
+					value: 15,
+				},
+				&counter{
+					name:  "counter2",
+					value: 15234,
+				},
+			},
+		},
+		{
+			name: "wrong json",
+			input: []byte(`
+				[
+					{
+						"id": "gauge1",
+						"type": "gauge",
+						"value": 1.15
+					},
+					
+						"id": "gauge2",
+						"type": "gauge",
+						"value": 1123.15
+					},
+					{
+						"id: "counter1",
+						"type": "counter",
+						"delta": 15
+					}
+					{
+						"id": "counter2",
+						"type": "counter",
+						"delta": 15234
+					}
+				]`),
+			want:    []Metric{},
+			wantErr: true,
+		},
+		{
+			name: "empty names ",
+			input: []byte(`
+				[
+					{
+						"id": "",
+						"type": "gauge",
+						"value": 1.15
+					},
+					{
+						"id": "",
+						"type": "gauge",
+						"value": 1123.15
+					},
+					{
+						"id": "counter1",
+						"type": "counter",
+						"delta": 15
+					},
+					{
+						"id": "counter2",
+						"type": "counter",
+						"delta": 15234
+					}
+				]`),
+			want:    []Metric{},
+			wantErr: true,
+		},
+		{
+			name: "wrong value fields",
+			input: []byte(`
+				[
+					{
+						"id": "",
+						"type": "gauge",
+						"delta": 1
+					},
+					{
+						"id": "",
+						"type": "gauge",
+						"delta": 1123
+					},
+					{
+						"id": "counter1",
+						"type": "counter",
+						"value": 15
+					},
+					{
+						"id": "counter2",
+						"type": "counter",
+						"value": 15234
+					}
+				]`),
+			want:    []Metric{},
+			wantErr: true,
+		},
+		{
+			name: "unknown type",
+			input: []byte(`
+				[
+					{
+						"id": "gauge1",
+						"type": "test",
+						"value": 1.15
+					},
+					{
+						"id": "gauge2",
+						"type": "auge",
+						"value": 1123.15
+					}
+				]`),
+			want: []Metric{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics, err := FromJSONArray([]byte(tt.input))
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, metrics)
+		})
+	}
+
 }

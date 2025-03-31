@@ -62,6 +62,7 @@ func (c gauge) String() string {
 func (c gauge) Float64() float64 {
 	return c.value
 }
+
 func (c gauge) Int64() int64 {
 	return int64(c.value)
 }

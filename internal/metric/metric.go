@@ -139,7 +139,7 @@ func createGaugeMetric(name string, value *float64) (Metric, error) {
 	} else {
 		err = ErrEmptyValue
 	}
-	return &gauge{name, v}, err
+	return NewGaugeMetric(name, v), err
 }
 
 func createCounterMetric(name string, value *int64) (Metric, error) {
@@ -152,7 +152,7 @@ func createCounterMetric(name string, value *int64) (Metric, error) {
 	} else {
 		err = ErrEmptyValue
 	}
-	return &counter{name, v}, err
+	return NewCounterMetric(name, v), err
 }
 
 func isNotEmpty(name, value string) error {

@@ -2,13 +2,17 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository/memory"
 	"github.com/vilasle/metrics/internal/service/server"
@@ -427,6 +431,131 @@ func TestDisplayMetricAsPlainText(t *testing.T) {
 			if tt.want != "" {
 				assert.Equal(t, tt.want, rr.Body.String())
 			}
+		})
+	}
+}
+
+func TestDisplayMetricAsJSON(t *testing.T) {
+	storage := memory.NewMetricRepository()
+
+	for _, v := range []struct {
+		n string
+		v string
+		t string
+	}{
+		{"gauge1", "1.05", metric.TypeGauge},
+		{"gauge2", "1.15", metric.TypeGauge},
+		{"counter1", "2", metric.TypeCounter},
+		{"counter2", "3", metric.TypeCounter},
+	} {
+		m, err := metric.ParseMetric(v.n, v.v, v.t)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := storage.Save(context.TODO(), m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	svc := server.NewMetricService(storage)
+
+	testCases := []struct {
+		name       string
+		method     string
+		body       io.Reader
+		statusCode int
+		want       metric.Metric
+	}{
+		{
+			name:       "get gauge1, expect 1.05",
+			method:     http.MethodPost,
+			body:       strings.NewReader(`{"id": "gauge1","type": "gauge"}`),
+			statusCode: http.StatusOK,
+			want:       metric.NewGaugeMetric("gauge1", 1.05),
+		},
+		{
+			name:       "get gauge2, expect 1.05",
+			method:     http.MethodPost,
+			body:       strings.NewReader(`{"id": "gauge2","type": "gauge"}`),
+			statusCode: http.StatusOK,
+			want:       metric.NewGaugeMetric("gauge2", 1.15),
+		},
+		{
+			name:       "get counter1, expect 2",
+			method:     http.MethodPost,
+			body:       strings.NewReader(`{"id": "counter1","type": "counter"}`),
+			statusCode: http.StatusOK,
+			want:       metric.NewCounterMetric("counter1", 2),
+		},
+		{
+			name:       "get counter2, expect 3",
+			method:     http.MethodPost,
+			body:       strings.NewReader(`{"id": "counter2","type": "counter"}`),
+			statusCode: http.StatusOK,
+			want:       metric.NewCounterMetric("counter2", 3),
+		},
+		{
+			name:       "get counter, empty name, expect NotFound",
+			method:     http.MethodPost,
+			body:       strings.NewReader(`{"id": "","type": "counter"}`),
+			statusCode: http.StatusInternalServerError,
+			want:       nil,
+		},
+		{
+			name:       "get counter, empty type, expect NotFound",
+			method:     http.MethodPost,
+			body:       strings.NewReader(`{"id": "counter1","type": ""}`),
+			statusCode: http.StatusBadRequest,
+			want:       nil,
+		},
+		{
+			name:       "get not existed counter, expect NotFound",
+			method:     http.MethodPost,
+			body:       strings.NewReader(`{"id": "counter3","type": "counter"}`),
+			statusCode: http.StatusNotFound,
+			want:       nil,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := chi.NewRouteContext()
+
+			req, err := http.NewRequest(tt.method, "/value/", tt.body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
+			req.Header.Add("Content-Type", "application/json")
+			rr := httptest.NewRecorder()
+			handler := DisplayMetric(svc)
+			handler.ServeHTTP(rr, req)
+
+			require.Equal(t, tt.statusCode, rr.Code)
+
+			if tt.want == nil {
+				return
+			}
+
+			object := struct {
+				ID    string   `json:"id"`
+				MType string   `json:"type"`
+				Delta *int64   `json:"delta,omitempty"`
+				Value *float64 `json:"value,omitempty"`
+			}{}
+
+			err = json.Unmarshal(rr.Body.Bytes(), &object)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want.Name(), object.ID)
+			assert.Equal(t, tt.want.Type(), object.MType)
+
+			if tt.want.Type() == metric.TypeGauge {
+				assert.Equal(t, tt.want.Float64(), *object.Value)
+			} else {
+				assert.Equal(t, tt.want.Int64(), *object.Delta)
+			}
+
 		})
 	}
 }

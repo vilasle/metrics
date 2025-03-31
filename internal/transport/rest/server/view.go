@@ -115,7 +115,7 @@ func handleDisplayMetricAsTextJSON(svc service.MetricService, r *http.Request) R
 	if err != nil {
 		return NewTextResponse(emptyBody(), err)
 	}
-	logger.Debugw("updated metric", "metric", metric)
+	logger.Debugw("display metric", "metric", metric)
 
 	metricContent, err := json.Marshal(metric)
 	return NewJSONResponse(metricContent, err)
