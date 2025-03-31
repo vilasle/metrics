@@ -20,7 +20,6 @@ type (
 )
 
 func NewCompressor(level int) CompressorWriter {
-
 	buf := &bytes.Buffer{}
 	gw, err := gzip.NewWriterLevel(buf, level)
 	if err != nil {
