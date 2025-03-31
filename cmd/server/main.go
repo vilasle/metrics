@@ -183,7 +183,8 @@ func createRepositoryService(config runConfig) (service.MetricService, context.C
 
 	storage, err := getStorage(ctx, config)
 	if err != nil {
-		logger.Fatalw("can not create storage", "error", err)
+		logger.Errorw("can not create storage", "error", err)
+		os.Exit(1)
 	}
 
 	return srvSvc.NewMetricService(storage), cancel

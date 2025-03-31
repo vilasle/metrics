@@ -67,10 +67,6 @@ func Error(args ...interface{}) {
 	logger.Error(args...)
 }
 
-func Fatal(args ...interface{}) {
-	logger.Fatal(args...)
-}
-
 func Debugf(template string, args ...interface{}) {
 	logger.Debugf(template, args...)
 }
@@ -87,10 +83,6 @@ func Errorf(template string, args ...interface{}) {
 	logger.Errorf(template, args...)
 }
 
-func Fatalf(template string, args ...interface{}) {
-	logger.Fatalf(template, args...)
-}
-
 func Debugw(msg string, keysAndValues ...interface{}) {
 	logger.Debugw(msg, keysAndValues...)
 }
@@ -105,8 +97,4 @@ func Warnw(msg string, keysAndValues ...interface{}) {
 
 func Errorw(msg string, keysAndValues ...interface{}) {
 	logger.Errorw(msg, keysAndValues...)
-}
-
-func Fatalw(msg string, keysAndValues ...interface{}) {
-	logger.Fatalw(msg, keysAndValues...)
 }
