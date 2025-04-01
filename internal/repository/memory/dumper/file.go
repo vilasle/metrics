@@ -6,6 +6,18 @@ import (
 	"sync"
 )
 
+type FileStreamer interface {
+	Write(b []byte) (int, error)
+	Rewrite(b []byte) (int, error)
+	ScanAll() ([]string, error)
+	Clear() error
+	Close() error
+}
+
+var (
+	_ FileStreamer = (*FileStream)(nil)
+)
+
 type FileStream struct {
 	fd *os.File
 	mx *sync.Mutex
@@ -39,12 +51,6 @@ func (f *FileStream) Rewrite(b []byte) (int, error) {
 	}
 	
 	return f.fd.Write(b)
-}
-
-func (f *FileStream) Flush() error {
-	f.mx.Lock()
-	defer f.mx.Unlock()
-	return f.fd.Sync()
 }
 
 func (f *FileStream) ScanAll() ([]string, error) {

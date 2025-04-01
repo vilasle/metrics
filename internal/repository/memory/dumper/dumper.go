@@ -48,7 +48,7 @@ func (d dumpedMetric) dumpedContent() []byte {
 }
 
 type FileDumper struct {
-	fs       *FileStream
+	fs       FileStreamer
 	storage  repository.MetricRepository
 	syncSave bool
 	srvMx    *sync.Mutex
