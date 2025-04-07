@@ -24,7 +24,7 @@ type Config struct {
 	Timeout time.Duration
 	Restore bool
 	Storage repository.MetricRepository
-	Stream  *FileStream
+	SerialWriter
 }
 
 type dumpedMetric struct {
@@ -48,7 +48,7 @@ func (d dumpedMetric) dumpedContent() []byte {
 }
 
 type FileDumper struct {
-	fs       FileStreamer
+	fs       SerialWriter
 	storage  repository.MetricRepository
 	syncSave bool
 	srvMx    *sync.Mutex
@@ -57,7 +57,7 @@ type FileDumper struct {
 func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	d := &FileDumper{
 		storage: config.Storage,
-		fs:      config.Stream,
+		fs:      config.SerialWriter,
 		srvMx:   &sync.Mutex{},
 	}
 	/*

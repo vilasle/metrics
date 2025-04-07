@@ -203,7 +203,7 @@ func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepo
 			Timeout: (time.Second * time.Duration(config.dumpInterval)),
 			Restore: config.restore,
 			Storage: memory.NewMetricRepository(),
-			Stream:  fs,
+			SerialWriter:  fs,
 		})
 	} else {
 		return nil, err

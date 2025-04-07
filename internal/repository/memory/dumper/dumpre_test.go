@@ -2,6 +2,7 @@ package dumper
 
 import (
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,21 +41,44 @@ func Test_dumpedMetric_dumpedContent(t *testing.T) {
 }
 
 func Test_FileStream_NewFileStream(t *testing.T) {
-	file := "test.txt"
-	fs, err := NewFileStream(file)
+	testCases := []struct {
+		name      string
+		file      string
+		wantError bool
+	}{
+		{
+			name:      "not existed file",
+			file:      "test.txt",
+			wantError: false,
+		},
+		{
+			name:      "access denied",
+			file:      "/root/test.txt",
+			wantError: true,
+		},
+	}
 
-	require.NoError(t, err)
-	require.NotNil(t, fs)
-	require.NoError(t, fs.Close())
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, err := NewFileStream(tt.file)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, fs)
 
-	_, err = os.Stat(file)
-	require.NoError(t, err)
+			require.NoError(t, fs.Close())
 
-	exists := !os.IsNotExist(err)
+			_, err = os.Stat(tt.file)
+			require.NoError(t, err)
 
-	require.Equal(t, true, exists)
+			require.Equal(t, true, !os.IsNotExist(err))
 
-	os.RemoveAll(file)
+			os.RemoveAll(tt.file)
+		})
+	}
+
 }
 
 func Test_FileStream_Write(t *testing.T) {
@@ -112,6 +136,101 @@ func Test_FileStream_Rewrite(t *testing.T) {
 	os.RemoveAll(file)
 }
 
-func Test_FileStream_ScanAll(t *testing.T) {}
+func Test_FileStream_ScanAll(t *testing.T) {
+	filename := "test.txt"
+	content := []string{"0;gauge1;123.123", "1;counter1;123"}
+	lines := make([]string, 0, 20)
+	for i := 0; i < 10; i++ {
+		lines = append(lines, content[0], content[1])
+	}
 
-func Test_FileStream_Clear(t *testing.T) {}
+	fd, err := os.Create(filename)
+	require.NoError(t, err)
+
+	for _, line := range lines {
+		wrLn := []byte(line)
+		wrLn = append(wrLn, byte('\n'))
+		_, err = fd.Write(wrLn)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, fd.Close())
+
+	fs, err := NewFileStream(filename)
+	require.NoError(t, err)
+	require.NotNil(t, fs)
+
+	result, err := fs.ScanAll()
+	require.NoError(t, err)
+
+	for i := range result {
+		assert.Equal(t, lines[i], result[i])
+	}
+
+	require.NoError(t, fs.Close())
+
+	require.NoError(t, os.RemoveAll(filename))
+
+}
+
+func Test_FileStream_Clear(t *testing.T) {
+	testCases := []struct {
+		name      string
+		filename  string
+		getFile   func(filename string) (*os.File, error)
+		wantError bool
+	}{
+		{
+			name:     "normal situation",
+			filename: "test.txt",
+			getFile: func(filename string) (*os.File, error) {
+				fd, err := os.Create(filename)
+				if err != nil {
+					return nil, err
+				}
+				//file will not be empty
+				_, err = fd.Write([]byte("test"))
+				if err == nil {
+					err = fd.Sync()
+				}
+				return fd, err
+			},
+			wantError: false,
+		},
+		{
+			name:     "nil pointer between file pointer",
+			filename: "test.txt",
+			getFile: func(filename string) (*os.File, error) {
+				return nil, nil
+			},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			file, err := tt.getFile(tt.filename)
+			require.NoError(t, err)
+
+			fs := File{
+				fd: file,
+				mx: &sync.Mutex{},
+			}
+			err = fs.Clear()
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NoError(t, file.Close())
+
+			stat, err := os.Stat(tt.filename)
+			require.NoError(t, err)
+			assert.Equal(t, int64(0), stat.Size())
+
+			require.NoError(t, os.Remove(tt.filename))
+		})
+	}
+
+}

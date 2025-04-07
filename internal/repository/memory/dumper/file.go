@@ -6,7 +6,8 @@ import (
 	"sync"
 )
 
-type FileStreamer interface {
+//go:generate mockgen -package=dumper -destination=serial_writer_mock_test.go -source=file.go
+type SerialWriter interface {
 	Write(b []byte) (int, error)
 	Rewrite(b []byte) (int, error)
 	ScanAll() ([]string, error)
@@ -15,45 +16,45 @@ type FileStreamer interface {
 }
 
 var (
-	_ FileStreamer = (*FileStream)(nil)
+	_ SerialWriter = (*File)(nil)
 )
 
-type FileStream struct {
+type File struct {
 	fd *os.File
 	mx *sync.Mutex
 }
 
-func NewFileStream(path string) (*FileStream, error) {
+func NewFileStream(path string) (*File, error) {
 	fd, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
-	return &FileStream{
+	return &File{
 		fd: fd,
 		mx: &sync.Mutex{},
 	}, nil
 }
 
-func (f *FileStream) Write(b []byte) (int, error) {
+func (f *File) Write(b []byte) (int, error) {
 	f.mx.Lock()
 	defer f.mx.Unlock()
 	return f.fd.Write(b)
 }
 
-func (f *FileStream) Rewrite(b []byte) (int, error) {
+func (f *File) Rewrite(b []byte) (n int, err error) {
 	f.mx.Lock()
 	defer f.mx.Unlock()
 
 	f.fd.Seek(0, 0)
 
-	if err := f.fd.Truncate(0); err != nil {
-		return 0, err
+	if err = f.Clear(); err == nil {
+		n, err = f.fd.Write(b)
 	}
-	
-	return f.fd.Write(b)
+
+	return n, err
 }
 
-func (f *FileStream) ScanAll() ([]string, error) {
+func (f *File) ScanAll() ([]string, error) {
 	f.fd.Seek(0, 0)
 	sc := bufio.NewScanner(f.fd)
 	rs := make([]string, 0)
@@ -64,10 +65,10 @@ func (f *FileStream) ScanAll() ([]string, error) {
 	return rs, sc.Err()
 }
 
-func (f *FileStream) Clear() error {
+func (f *File) Clear() error {
 	return f.fd.Truncate(0)
 }
 
-func (f *FileStream) Close() error {
+func (f *File) Close() error {
 	return f.fd.Close()
 }

@@ -4,6 +4,7 @@ go 1.24
 
 require (
 	github.com/go-chi/chi/v5 v5.1.0
+	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
