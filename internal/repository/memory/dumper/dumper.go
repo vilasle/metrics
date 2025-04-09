@@ -20,6 +20,8 @@ const (
 	counterID = "1"
 )
 
+type initOpt func(*FileDumper) error
+
 type Config struct {
 	Timeout time.Duration
 	Restore bool
@@ -54,47 +56,36 @@ type FileDumper struct {
 	srvMx    *sync.Mutex
 }
 
+/*
+On during work on sync mode we will add only new lines to file
+example:
+
+	0;gauge1;123
+	0;gauge1;124
+	0;gauge1;126
+	1;counter1;126
+	1;counter1;126
+	1;counter1;126
+
+For counter such situation is ok, for gauge not is.
+
+In general if the last launch worked on sync mode we would have all history transactions.
+When we restore repository from file we will have unique values for gauge and historical data for counter
+and after dumping got file which will match real situation on repository
+*/
 func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	d := &FileDumper{
-		storage: config.Storage,
-		fs:      config.SerialWriter,
-		srvMx:   &sync.Mutex{},
-	}
-	/*
-		on during work on sync mode we will add only new lines to file
-		example
-			0;gauge1;123
-			0;gauge1;124
-			0;gauge1;126
-			1;counter1;126
-			1;counter1;126
-			1;counter1;126
-		for counter such situation is ok, for gauge not is.
-
-		In general if the last launch worked on sync mode we would have all history transactions.
-		When we restore repository from file we will have unique values for gauge and historical data for counter
-		and after dumping got file which will match real situation on repository
-	*/
-
-	if config.Restore {
-		if err := d.restore(); err != nil {
-			return nil, err
-		}
-
-		if err := d.DumpAll(); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := d.fs.Clear(); err != nil {
-			return nil, err
-		}
+		storage:  config.Storage,
+		fs:       config.SerialWriter,
+		srvMx:    &sync.Mutex{},
+		syncSave: config.Timeout == 0,
 	}
 
-	if config.Timeout == 0 {
-		d.syncSave = true
-	} else {
-		go d.dumpOnBackground(ctx, config.Timeout)
+	if err := d.prepareToRun(d.getInitOpts(config)...); err != nil {
+		return nil, err
 	}
+
+	d.runByMode(ctx, config.Timeout)
 
 	return d, nil
 }
@@ -138,9 +129,7 @@ func (d *FileDumper) DumpAll() error {
 		}
 	}
 
-	logger.Debugw(
-		"content on dump before dumping",
-		zap.String("content", buf.String()))
+	logger.Debugw("content on dump before dumping", zap.String("content", buf.String()))
 
 	_, err = d.fs.Rewrite(buf.Bytes())
 	return err
@@ -158,31 +147,13 @@ func (d *FileDumper) Close() {
 	d.storage.Close()
 }
 
-func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration) {
-	ticker := time.NewTicker(timeout)
-	for {
-		select {
-		case <-ticker.C:
-			d.DumpAll()
-		case <-ctx.Done():
-			logger.Debug("got signal. need to dump all metrics")
-			d.DumpAll()
-			logger.Debug("dumping finished")
-			d.fs.Close()
-			return
-		}
-	}
-}
-
 func (d *FileDumper) restore() error {
 	all, err := d.fs.ScanAll()
 	if err != nil {
 		return err
 	}
 
-	logger.Debugw(
-		"content on dump before restore",
-		zap.Any("dump", all))
+	logger.Debugw("content on dump before restore", zap.Any("dump", all))
 
 	errs := make([]error, 0)
 
@@ -233,15 +204,50 @@ func (d *FileDumper) restore() error {
 	}
 	logger.Debugf("after restoring there are %d metrics", len(_all))
 
-	for _, m := range _all {
-		logger.Debugw("metric",
-			zap.String("name", m.Name()),
-			zap.String("type", m.Type()),
-			zap.String("value", m.Value()),
-		)
-	}
-
 	return errors.Join(errs...)
+}
+
+func (d *FileDumper) getInitOpts(config Config) []initOpt {
+	if config.Restore {
+		return []initOpt{withRestore}
+	}
+	return []initOpt{withClear}
+}
+
+func (d *FileDumper) prepareToRun(opt ...initOpt) error {
+	for _, o := range opt {
+		if err := o(d); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *FileDumper) runByMode(ctx context.Context, timeout time.Duration) {
+	if !d.syncSave {
+		go d.dumpOnBackground(ctx, timeout)
+	}
+}
+
+func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration) {
+	ticker := time.NewTicker(timeout)
+	for {
+		select {
+		case <-ticker.C:
+			d.DumpAll()
+		case <-ctx.Done():
+			logger.Debug("got signal. need to dump all metrics")
+			d.stop()
+			return
+		}
+	}
+}
+
+func (d *FileDumper) stop() {
+	if err := d.DumpAll(); err != nil {
+		logger.Error("error on dump all metrics", zap.Error(err))
+	}
+	defer d.fs.Close()
 }
 
 func (d *FileDumper) all(ctx context.Context) ([]metric.Metric, error) {
@@ -255,4 +261,19 @@ func (d *FileDumper) all(ctx context.Context) ([]metric.Metric, error) {
 		return nil, err
 	}
 	return append(gauges, counters...), nil
+}
+
+func withRestore(d *FileDumper) error {
+	if err := d.restore(); err != nil {
+		return err
+	}
+
+	if err := d.DumpAll(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func withClear(d *FileDumper) error {
+	return d.fs.Clear()
 }

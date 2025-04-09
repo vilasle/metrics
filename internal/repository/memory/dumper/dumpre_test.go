@@ -1,44 +1,16 @@
 package dumper
 
 import (
+	"context"
 	"os"
 	"sync"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vilasle/metrics/internal/metric"
 )
-
-func Test_dumpedMetric_dumpedContent(t *testing.T) {
-	tests := []struct {
-		name   string
-		metric dumpedMetric
-		want   []byte
-	}{
-		{
-			name: "dump counter",
-			metric: dumpedMetric{
-				metric.NewCounterMetric("counter1", 123),
-			},
-			want: []byte("1;counter1;123\n"),
-		},
-		{
-			name: "dump gauge",
-			metric: dumpedMetric{
-				metric.NewGaugeMetric("gauge1", 123.123),
-			},
-			want: []byte("0;gauge1;123.123\n"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.metric.dumpedContent())
-		})
-	}
-
-}
 
 func Test_FileStream_NewFileStream(t *testing.T) {
 	testCases := []struct {
@@ -172,7 +144,6 @@ func Test_FileStream_ScanAll(t *testing.T) {
 	require.NoError(t, os.RemoveAll(filename))
 
 }
-
 func Test_FileStream_Clear(t *testing.T) {
 	testCases := []struct {
 		name      string
@@ -233,4 +204,94 @@ func Test_FileStream_Clear(t *testing.T) {
 		})
 	}
 
+}
+
+func Test_dumpedMetric_dumpedContent(t *testing.T) {
+	tests := []struct {
+		name   string
+		metric dumpedMetric
+		want   []byte
+	}{
+		{
+			name: "dump counter",
+			metric: dumpedMetric{
+				metric.NewCounterMetric("counter1", 123),
+			},
+			want: []byte("1;counter1;123\n"),
+		},
+		{
+			name: "dump gauge",
+			metric: dumpedMetric{
+				metric.NewGaugeMetric("gauge1", 123.123),
+			},
+			want: []byte("0;gauge1;123.123\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.metric.dumpedContent())
+		})
+	}
+}
+
+func Test_FileDumper_NewFileDumper(t *testing.T) {
+}
+
+func Test_FileDumper_Save(t *testing.T) {
+}
+
+func Test_FileDumper_Get(t *testing.T) {
+	ctx := context.Background()
+	metricType := metric.TypeGauge
+	filter := "gauge1"
+
+	result := []metric.Metric{
+		metric.NewGaugeMetric("gauge1", 123.123),
+	}
+	var resultErr error = nil
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := NewMockMetricRepository(ctrl)
+	repo.EXPECT().Get(ctx, metricType, filter).Return(result, resultErr)
+
+	fd := FileDumper{
+		storage: repo,
+	}
+
+	r, err := fd.Get(ctx, metricType, filter)
+
+	assert.Equal(t, resultErr, err)
+	assert.Equal(t, result, r)
+}
+
+func Test_FileDumper_Ping(t *testing.T) {
+	ctx := context.Background()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := NewMockMetricRepository(ctrl)
+	repo.EXPECT().Ping(ctx).Return(nil)
+
+	fd := FileDumper{
+		storage: repo,
+	}
+	assert.NoError(t, fd.Ping(ctx))
+}
+
+func Test_FileDumper_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := NewMockMetricRepository(ctrl)
+	repo.EXPECT().Close()
+
+	fd := FileDumper{
+		storage: repo,
+	}
+
+	fd.Close()
 }
