@@ -2,6 +2,7 @@ package dumper
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 	"testing"
@@ -239,6 +240,89 @@ func Test_FileDumper_NewFileDumper(t *testing.T) {
 }
 
 func Test_FileDumper_Save(t *testing.T) {
+
+	setupStorage := func(mock *MockMetricRepository, ctx context.Context, metrics []metric.Metric, err error) {
+		mock.EXPECT().Save(ctx, metrics).Return(err)
+	}
+
+	setupWriter := func(mock *MockSerialWriter, input []byte, n int, err error) {
+		mock.EXPECT().Write(input).Return(n, err)
+	}
+
+	type saveArgs struct {
+		metrics []metric.Metric
+
+		err error
+	}
+
+	type writeArgs struct {
+		content []byte
+		n       int
+		err     error
+	}
+
+	tmpMetrics := []metric.Metric{
+		metric.NewCounterMetric("counter1", 123),
+	}
+
+	testCases := []struct {
+		name     string
+		syncSave bool
+		*saveArgs
+		*writeArgs
+		ctx     context.Context
+		metrics []metric.Metric
+		err     error
+	}{
+		{
+			name:     "success, no sync mode",
+			syncSave: false,
+			saveArgs: &saveArgs{
+				metrics: tmpMetrics,
+				err:     nil,
+			},
+			metrics: tmpMetrics,
+			err:     nil,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			repo := NewMockMetricRepository(ctrl)
+			fs := NewMockSerialWriter(ctrl)
+
+			if tt.saveArgs != nil {
+				setupStorage(repo, tt.ctx, tt.saveArgs.metrics, tt.saveArgs.err)
+			}
+
+			if tt.writeArgs != nil {
+				setupWriter(fs, tt.writeArgs.content, tt.writeArgs.n, tt.writeArgs.err)
+			}
+
+			fd := FileDumper{
+				fs:       fs,
+				storage:  repo,
+				syncSave: tt.syncSave,
+				srvMx:    &sync.Mutex{},
+			}
+
+			err := fd.Save(tt.ctx, tt.metrics...)
+
+			if tt.err != nil {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+		})
+	}
+
+}
+
+func Test_FileDumper_DumpAll(t *testing.T) {
 }
 
 func Test_FileDumper_Get(t *testing.T) {
@@ -294,4 +378,101 @@ func Test_FileDumper_Close(t *testing.T) {
 	}
 
 	fd.Close()
+}
+
+func Test_FileDumper_all(t *testing.T) {
+	gaugeErr := errors.New("gauge error")
+	counterErr := errors.New("counter error")
+
+	setup := func(r *MockMetricRepository, ctx context.Context, mtype string, res []metric.Metric, err error) {
+		r.EXPECT().Get(ctx, mtype).Return(res, err)
+	}
+
+	testCases := []struct {
+		name       string
+		gauges     []metric.Metric
+		counters   []metric.Metric
+		result     []metric.Metric
+		ctx        context.Context
+		err        error
+		gaugeErr   error
+		counterErr error
+	}{
+		{
+			name: "success",
+			gauges: []metric.Metric{
+				metric.NewGaugeMetric("gauge1", 123.123), metric.NewGaugeMetric("gauge2", 321.321),
+			},
+			counters: []metric.Metric{
+				metric.NewCounterMetric("counter1", 123), metric.NewCounterMetric("counter2", 321),
+			},
+			result: []metric.Metric{
+				metric.NewGaugeMetric("gauge1", 123.123), metric.NewGaugeMetric("gauge2", 321.321),
+				metric.NewCounterMetric("counter1", 123), metric.NewCounterMetric("counter2", 321),
+			},
+			ctx:        context.Background(),
+			err:        nil,
+			gaugeErr:   nil,
+			counterErr: nil,
+		},
+		{
+			name:       "getting gauges failed",
+			gauges:     nil,
+			counters:   nil,
+			result:     nil,
+			ctx:        context.Background(),
+			err:        gaugeErr,
+			gaugeErr:   gaugeErr,
+			counterErr: nil,
+		},
+		{
+			name: "getting counters failed",
+			gauges: []metric.Metric{
+				metric.NewGaugeMetric("gauge1", 123.123), metric.NewGaugeMetric("gauge2", 321.321),
+			},
+			counters:   nil,
+			result:     nil,
+			ctx:        context.Background(),
+			err:        counterErr,
+			gaugeErr:   nil,
+			counterErr: counterErr,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			repo := NewMockMetricRepository(ctrl)
+
+			setup(repo, tt.ctx, metric.TypeGauge, tt.gauges, tt.gaugeErr)
+
+			if tt.gaugeErr == nil {
+				setup(repo, tt.ctx, metric.TypeCounter, tt.counters, tt.counterErr)
+			}
+
+			fd := &FileDumper{storage: repo}
+
+			r, err := fd.all(tt.ctx)
+
+			assert.Equal(t, tt.err, err)
+			assert.Equal(t, tt.result, r)
+		})
+	}
+
+}
+
+func Test_withClear(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	fs := NewMockSerialWriter(ctrl)
+
+	fd := &FileDumper{
+		fs: fs,
+	}
+
+	fs.EXPECT().Clear().Return(nil)
+
+	assert.NoError(t, withClear(fd))
 }
