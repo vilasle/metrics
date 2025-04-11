@@ -20,7 +20,7 @@ const (
 	counterID = "1"
 )
 
-type initOpt func(*FileDumper) error
+type initOpt func(context.Context, *FileDumper) error
 
 type Config struct {
 	Timeout time.Duration
@@ -81,7 +81,7 @@ func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 		syncSave: config.Timeout == 0,
 	}
 
-	if err := d.prepareToRun(d.getInitOpts(config)...); err != nil {
+	if err := d.prepareToRun(ctx, d.getInitOpts(config)...); err != nil {
 		return nil, err
 	}
 
@@ -111,11 +111,11 @@ func (d *FileDumper) Save(ctx context.Context, entity ...metric.Metric) error {
 	return errors.Join(errs...)
 }
 
-func (d *FileDumper) DumpAll() error {
+func (d *FileDumper) DumpAll(ctx context.Context) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
 
-	s, err := d.all(context.Background())
+	s, err := d.all(ctx)
 	if err != nil {
 		return err
 	}
@@ -214,9 +214,9 @@ func (d *FileDumper) getInitOpts(config Config) []initOpt {
 	return []initOpt{withClear}
 }
 
-func (d *FileDumper) prepareToRun(opt ...initOpt) error {
-	for _, o := range opt {
-		if err := o(d); err != nil {
+func (d *FileDumper) prepareToRun(ctx context.Context, opts ...initOpt) error {
+	for _, opt := range opts {
+		if err := opt(ctx, d); err != nil {
 			return err
 		}
 	}
@@ -234,17 +234,17 @@ func (d *FileDumper) dumpOnBackground(ctx context.Context, timeout time.Duration
 	for {
 		select {
 		case <-ticker.C:
-			d.DumpAll()
+			d.DumpAll(ctx)
 		case <-ctx.Done():
 			logger.Debug("got signal. need to dump all metrics")
-			d.stop()
+			d.stop(ctx)
 			return
 		}
 	}
 }
 
-func (d *FileDumper) stop() {
-	if err := d.DumpAll(); err != nil {
+func (d *FileDumper) stop(ctx context.Context) {
+	if err := d.DumpAll(ctx); err != nil {
 		logger.Error("error on dump all metrics", zap.Error(err))
 	}
 	defer d.fs.Close()
@@ -263,17 +263,17 @@ func (d *FileDumper) all(ctx context.Context) ([]metric.Metric, error) {
 	return append(gauges, counters...), nil
 }
 
-func withRestore(d *FileDumper) error {
+func withRestore(ctx context.Context, d *FileDumper) error {
 	if err := d.restore(); err != nil {
 		return err
 	}
 
-	if err := d.DumpAll(); err != nil {
+	if err := d.DumpAll(ctx); err != nil {
 		return err
 	}
 	return nil
 }
 
-func withClear(d *FileDumper) error {
+func withClear(ctx context.Context, d *FileDumper) error {
 	return d.fs.Clear()
 }

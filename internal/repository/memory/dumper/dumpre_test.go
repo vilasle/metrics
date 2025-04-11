@@ -240,7 +240,8 @@ func Test_FileDumper_NewFileDumper(t *testing.T) {
 }
 
 func Test_FileDumper_Save(t *testing.T) {
-
+	storageErr := errors.New("storage error")
+	fsErr := errors.New("file stream error")
 	setupStorage := func(mock *MockMetricRepository, ctx context.Context, metrics []metric.Metric, err error) {
 		mock.EXPECT().Save(ctx, metrics).Return(err)
 	}
@@ -279,10 +280,50 @@ func Test_FileDumper_Save(t *testing.T) {
 			syncSave: false,
 			saveArgs: &saveArgs{
 				metrics: tmpMetrics,
+				err:     storageErr,
+			},
+			metrics: tmpMetrics,
+			err:     storageErr,
+		},
+		{
+			name:     "storage failed, no sync mode",
+			syncSave: false,
+			saveArgs: &saveArgs{
+				metrics: tmpMetrics,
 				err:     nil,
 			},
 			metrics: tmpMetrics,
 			err:     nil,
+		},
+		{
+			name:     "success, sync mode",
+			syncSave: true,
+			saveArgs: &saveArgs{
+				metrics: tmpMetrics,
+				err:     nil,
+			},
+			writeArgs: &writeArgs{
+				content: []byte("1;counter1;123\n"),
+				n:       1,
+				err:     nil,
+			},
+			metrics: tmpMetrics,
+			err:     nil,
+		},
+		{
+			name:     "serial writer failed, sync mode",
+			syncSave: true,
+			saveArgs: &saveArgs{
+				metrics: tmpMetrics,
+				err:     nil,
+			},
+			writeArgs: &writeArgs{
+				content: []byte("1;counter1;123\n"),
+				n:       1,
+				err:     fsErr,
+			},
+			metrics: tmpMetrics,
+			err:     fsErr,
 		},
 	}
 
@@ -316,13 +357,83 @@ func Test_FileDumper_Save(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-
 		})
 	}
 
 }
 
 func Test_FileDumper_DumpAll(t *testing.T) {
+
+	setupWriter := func(mock *MockSerialWriter, input []byte, n int, err error) {
+		mock.EXPECT().Rewrite(input).Return(n, err)
+	}
+
+	setupStorage := func(mock *MockMetricRepository, ctx context.Context, mtype string, metrics []metric.Metric, err error) {
+		mock.EXPECT().Get(ctx, mtype).Return(metrics, err)
+	}
+
+	type storageArgs struct {
+		mtype   string
+		metrics []metric.Metric
+		err     error
+	}
+
+	type writerArgs struct {
+		content []byte
+		n       int
+		err     error
+	}
+
+	testsCases := []struct {
+		name        string
+		ctx         context.Context
+		storageArgs []storageArgs
+		writerArgs  []writerArgs
+		want        error
+	}{
+		{
+			name: "success dumping",
+			want: nil,
+			ctx: context.Background(),
+			storageArgs: []storageArgs{
+				{
+
+				},
+				{},
+			},
+			writerArgs: []writerArgs{
+				{},
+			},
+		},
+	}
+
+	for _, tt := range testsCases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			repo := NewMockMetricRepository(ctrl)
+
+			for _, args := range tt.storageArgs {
+				setupStorage(repo, tt.ctx, args.mtype, args.metrics, args.err)
+			}
+
+			fs := NewMockSerialWriter(ctrl)
+
+			for _, args := range tt.writerArgs {
+				setupWriter(fs, args.content, args.n, args.err)
+			}
+
+			fd := FileDumper{
+				storage: repo,
+				fs:      fs,
+				srvMx:   &sync.Mutex{},
+			}
+
+			assert.Equal(t, tt.want, fd.DumpAll(tt.ctx))
+		})
+	}
+
 }
 
 func Test_FileDumper_Get(t *testing.T) {
@@ -472,7 +583,9 @@ func Test_withClear(t *testing.T) {
 		fs: fs,
 	}
 
+	ctx := context.Background()
+
 	fs.EXPECT().Clear().Return(nil)
 
-	assert.NoError(t, withClear(fd))
+	assert.NoError(t, withClear(ctx, fd))
 }
