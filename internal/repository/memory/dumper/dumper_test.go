@@ -363,7 +363,6 @@ func Test_FileDumper_Save(t *testing.T) {
 }
 
 func Test_FileDumper_DumpAll(t *testing.T) {
-
 	setupWriter := func(mock *MockSerialWriter, input []byte, n int, err error) {
 		mock.EXPECT().Rewrite(input).Return(n, err)
 	}
@@ -371,6 +370,9 @@ func Test_FileDumper_DumpAll(t *testing.T) {
 	setupStorage := func(mock *MockMetricRepository, ctx context.Context, mtype string, metrics []metric.Metric, err error) {
 		mock.EXPECT().Get(ctx, mtype).Return(metrics, err)
 	}
+
+	storageErr := errors.New("storage error")
+	fsErr := errors.New("file stream error")
 
 	type storageArgs struct {
 		mtype   string
@@ -394,15 +396,77 @@ func Test_FileDumper_DumpAll(t *testing.T) {
 		{
 			name: "success dumping",
 			want: nil,
-			ctx: context.Background(),
+			ctx:  context.Background(),
 			storageArgs: []storageArgs{
 				{
-
+					mtype: metric.TypeGauge,
+					metrics: []metric.Metric{
+						metric.NewGaugeMetric("gauge1", 123.123),
+					},
+					err: nil,
 				},
-				{},
+				{
+					mtype: metric.TypeCounter,
+					metrics: []metric.Metric{
+						metric.NewCounterMetric("counter1", 123),
+					},
+					err: nil,
+				},
 			},
 			writerArgs: []writerArgs{
-				{},
+				{
+					content: []byte("0;gauge1;123.123\n1;counter1;123\n"),
+					n:       1,
+					err:     nil,
+				},
+			},
+		},
+		{
+			name: "failed getting metrics",
+			want: storageErr,
+			ctx:  context.Background(),
+			storageArgs: []storageArgs{
+				{
+					mtype: metric.TypeGauge,
+					metrics: []metric.Metric{
+						metric.NewGaugeMetric("gauge1", 123.123),
+					},
+					err: nil,
+				},
+				{
+					mtype:   metric.TypeCounter,
+					metrics: []metric.Metric{},
+					err:     storageErr,
+				},
+			},
+			writerArgs: []writerArgs{},
+		},
+		{
+			name: "failed write metrics",
+			want: fsErr,
+			ctx:  context.Background(),
+			storageArgs: []storageArgs{
+				{
+					mtype: metric.TypeGauge,
+					metrics: []metric.Metric{
+						metric.NewGaugeMetric("gauge1", 123.123),
+					},
+					err: nil,
+				},
+				{
+					mtype: metric.TypeCounter,
+					metrics: []metric.Metric{
+						metric.NewCounterMetric("counter1", 123),
+					},
+					err: nil,
+				},
+			},
+			writerArgs: []writerArgs{
+				{
+					content: []byte("0;gauge1;123.123\n1;counter1;123\n"),
+					n:       1,
+					err:     fsErr,
+				},
 			},
 		},
 	}
