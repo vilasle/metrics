@@ -653,3 +653,80 @@ func Test_withClear(t *testing.T) {
 
 	assert.NoError(t, withClear(ctx, fd))
 }
+
+func Test_FileDumper_restore(t *testing.T) {
+	//fs scan all setup
+	setupFs := func(mock *MockSerialWriter, result []string, err error) {
+		mock.EXPECT().ScanAll().Return(result, err)
+	}
+	//storage save setup
+	setupStorage := func(mock *MockMetricRepository, ctx context.Context, metrics []metric.Metric, err error) {
+		mock.EXPECT().Save(ctx, metrics).Return(err)
+	}
+
+	ctx := context.Background()
+
+	type writerArg struct {
+		result []string
+		err    error
+	}
+
+	type storageArg struct {
+		metrics []metric.Metric
+		err     error
+	}
+
+	testCase := []struct {
+		name string
+		writerArg
+		storageArgs []storageArg
+		want        error
+	}{
+		{
+			name: "success",
+			writerArg: writerArg{
+				result: []string{"0;gauge1;123.123", "1;counter1;321"},
+				err:    nil,
+			},
+			storageArgs: []storageArg{
+				{
+					metrics: []metric.Metric{
+						metric.NewGaugeMetric("gauge1", 123.123),
+					},
+					err: nil,
+				},
+				{
+					metrics: []metric.Metric{
+						metric.NewCounterMetric("counter1", 321),
+					},
+					err: nil,
+				},
+			},
+		},
+	}
+
+	for _, tt := range testCase {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			fs := NewMockSerialWriter(ctrl)
+			storage := NewMockMetricRepository(ctrl)
+
+			setupFs(fs, tt.result, tt.err)
+
+			for _, arg := range tt.storageArgs {
+				setupStorage(storage, ctx, arg.metrics, arg.err)
+			}
+
+			fd := &FileDumper{
+				fs:      fs,
+				storage: storage,
+			}
+
+			err := fd.restore(ctx)
+
+			assert.Equal(t, tt.want, err)
+		})
+	}
+}

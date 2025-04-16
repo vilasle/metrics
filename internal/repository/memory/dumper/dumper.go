@@ -147,7 +147,7 @@ func (d *FileDumper) Close() {
 	d.storage.Close()
 }
 
-func (d *FileDumper) restore() error {
+func (d *FileDumper) restore(ctx context.Context) error {
 	all, err := d.fs.ScanAll()
 	if err != nil {
 		return err
@@ -159,8 +159,6 @@ func (d *FileDumper) restore() error {
 
 	rawGauge := make(map[string]metric.Metric)
 	rawCounter := make([]metric.Metric, 0)
-
-	ctx := context.Background()
 
 	for i, b := range all {
 		raw := strings.Split(b, ";")
@@ -186,23 +184,22 @@ func (d *FileDumper) restore() error {
 			rawCounter = append(rawCounter, m)
 		}
 	}
-
+	qty := len(rawGauge) + len(rawCounter)
 	for _, g := range rawGauge {
 		if err := d.storage.Save(ctx, g); err != nil {
 			errs = append(errs, err)
+			qty--
 		}
 	}
 
 	for _, c := range rawCounter {
 		if err := d.storage.Save(ctx, c); err != nil {
 			errs = append(errs, err)
+			qty--
 		}
 	}
-	_all, err := d.all(ctx)
-	if err != nil {
-		return err
-	}
-	logger.Debugf("after restoring there are %d metrics", len(_all))
+
+	logger.Debugf("after restoring there are %d metrics", qty)
 
 	return errors.Join(errs...)
 }
@@ -264,7 +261,7 @@ func (d *FileDumper) all(ctx context.Context) ([]metric.Metric, error) {
 }
 
 func withRestore(ctx context.Context, d *FileDumper) error {
-	if err := d.restore(); err != nil {
+	if err := d.restore(ctx); err != nil {
 		return err
 	}
 
