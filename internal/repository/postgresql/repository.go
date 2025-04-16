@@ -2,10 +2,10 @@ package postgresql
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository"
 )
@@ -14,11 +14,11 @@ type PostgresqlMetricRepository struct {
 	db repeater
 }
 
-func NewRepository(db *pgxpool.Pool) (*PostgresqlMetricRepository, error) {
+func NewRepository(db *sql.DB) (*PostgresqlMetricRepository, error) {
 	r := &PostgresqlMetricRepository{
 		db: repeater{
-			db:     db,
-			repeat: []time.Duration{time.Second * 1, time.Second * 3, time.Second * 5},
+			db:          db,
+			repeatSteps: []time.Duration{time.Second * 1, time.Second * 3, time.Second * 5},
 		},
 	}
 
@@ -61,7 +61,8 @@ func (r *PostgresqlMetricRepository) saveAll(ctx context.Context, entity ...metr
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer tx.Rollback()
+
 	errs := make([]error, 0)
 
 	for _, e := range entity {
@@ -72,7 +73,7 @@ func (r *PostgresqlMetricRepository) saveAll(ctx context.Context, entity ...metr
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
-	return tx.Commit(ctx)
+	return tx.Commit()
 }
 
 func (r *PostgresqlMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {

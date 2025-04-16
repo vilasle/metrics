@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"io"
@@ -12,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
@@ -22,6 +22,7 @@ import (
 	"github.com/vilasle/metrics/internal/repository/memory/dumper"
 	"github.com/vilasle/metrics/internal/repository/postgresql"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
@@ -200,10 +201,10 @@ func getStorage(ctx context.Context, config runConfig) (repository.MetricReposit
 func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
 	if fs, err := dumper.NewFileStream(config.dumpFilePath); err == nil {
 		return dumper.NewFileDumper(ctx, dumper.Config{
-			Timeout: (time.Second * time.Duration(config.dumpInterval)),
-			Restore: config.restore,
-			Storage: memory.NewMetricRepository(),
-			SerialWriter:  fs,
+			Timeout:      (time.Second * time.Duration(config.dumpInterval)),
+			Restore:      config.restore,
+			Storage:      memory.NewMetricRepository(),
+			SerialWriter: fs,
 		})
 	} else {
 		return nil, err
@@ -211,11 +212,12 @@ func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepo
 }
 
 func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
-	pool, err := pgxpool.New(ctx, config.databaseDSN)
+
+	db, err := sql.Open("pgx/v5", config.databaseDSN)
 	if err != nil {
 		return nil, err
 	}
-	return postgresql.NewRepository(pool)
+	return postgresql.NewRepository(db)
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {

@@ -2,8 +2,8 @@ package postgresql
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/vilasle/metrics/internal/metric"
 )
 
@@ -52,7 +52,7 @@ func (g *counterGetter) getAll(ctx context.Context) ([]metric.Metric, error) {
 	}
 }
 
-func (g *counterGetter) parseResult(rows pgx.Rows) ([]metric.Metric, error) {
+func (g *counterGetter) parseResult(rows *sql.Rows) ([]metric.Metric, error) {
 	rs := make([]metric.Metric, 0)
 	for rows.Next() {
 		var name string
@@ -95,7 +95,7 @@ func (g *gaugeGetter) getAll(ctx context.Context) ([]metric.Metric, error) {
 	}
 }
 
-func (g *gaugeGetter) parseResult(rows pgx.Rows) ([]metric.Metric, error) {
+func (g *gaugeGetter) parseResult(rows *sql.Rows) ([]metric.Metric, error) {
 	rs := make([]metric.Metric, 0)
 	for rows.Next() {
 		var name string
