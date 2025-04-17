@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vilasle/metrics/internal/metric"
+	"github.com/vilasle/metrics/internal/repository"
 )
 
 func Test_unknownGetter_get(t *testing.T) {
@@ -102,6 +103,37 @@ func Test_gaugeSaver_save(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+type mockMetric struct{}
+
+func (mockMetric) Name() string {
+	return "mock"
+}
+
+func (mockMetric) Value() string {
+	return "1"
+}
+func (mockMetric) Type() string {
+	return "some"
+}
+func (mockMetric) SetValue(any) error {
+	return nil
+}
+func (mockMetric) AddValue(any) error {
+	return nil
+}
+func (mockMetric) Float64() float64 {
+	return 1
+}
+func (mockMetric) Int64() int64 {
+	return 1
+}
+func (mockMetric) String() string {
+	return "mock"
+}
+func (mockMetric) MarshalJSON() ([]byte, error) {
+	return []byte("{}"), nil
+}
+
 func TestPostgresqlMetricRepository_Save(t *testing.T) {
 	setup := func(mock sqlmock.Sqlmock, metrics []metric.Metric) {
 		if len(metrics) > 1 {
@@ -121,7 +153,7 @@ func TestPostgresqlMetricRepository_Save(t *testing.T) {
 		if len(metrics) > 1 {
 			mock.ExpectCommit()
 			mock.ExpectRollback()
-			
+
 		}
 	}
 	testCases := []struct {
@@ -155,6 +187,29 @@ func TestPostgresqlMetricRepository_Save(t *testing.T) {
 			},
 			want: nil,
 		},
+		{
+			name: "failed: unknown metric type",
+			ctx:  context.Background(),
+			metrics: []metric.Metric{
+				mockMetric{},
+			},
+			want: metric.ErrUnknownMetricType,
+		},
+		{
+			name: "failed batch: one of metrics has unknown metric type",
+			ctx:  context.Background(),
+			metrics: []metric.Metric{
+				metric.NewGaugeMetric("gauge1", 1.123),
+				mockMetric{},
+			},
+			want: metric.ErrUnknownMetricType,
+		},
+		{
+			name:    "failed: empty set",
+			ctx:     context.Background(),
+			metrics: []metric.Metric{},
+			want:    repository.ErrEmptySetOfMetric,
+		},
 	}
 
 	for _, tt := range testCases {
@@ -169,9 +224,10 @@ func TestPostgresqlMetricRepository_Save(t *testing.T) {
 			repo := PostgresqlMetricRepository{r}
 
 			err = repo.Save(tt.ctx, tt.metrics...)
-
-			assert.Equal(t, tt.want, err)
-
+			if tt.want != nil {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, tt.want)
+			}
 		})
 
 	}
