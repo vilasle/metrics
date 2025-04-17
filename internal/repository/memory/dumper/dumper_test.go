@@ -24,11 +24,6 @@ func Test_FileStream_NewFileStream(t *testing.T) {
 			file:      "test.txt",
 			wantError: false,
 		},
-		// {
-		// 	name:      "access denied",
-		// 	file:      "/root/test.txt",
-		// 	wantError: true,
-		// },
 	}
 
 	for _, tt := range testCases {
