@@ -26,14 +26,12 @@ func (r repeater) Exec(ctx context.Context, sql string, args ...interface{}) (er
 		_, err := r.db.ExecContext(ctx, sql, args...)
 		return err
 	})
-	// 	time.Sleep(d)
-	// }
-	// return err
 }
 
 func (r repeater) Query(ctx context.Context, sql string, args ...interface{}) (rows *sql.Rows, err error) {
 	r.repeat(func() error {
 		rows, err = r.db.QueryContext(ctx, sql, args...)
+		
 		return err
 	})
 

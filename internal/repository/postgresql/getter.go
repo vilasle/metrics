@@ -62,7 +62,7 @@ func (g *counterGetter) parseResult(rows *sql.Rows) ([]metric.Metric, error) {
 		}
 		rs = append(rs, metric.NewCounterMetric(name, value))
 	}
-	return rs, nil
+	return rs, rows.Err()
 
 }
 
