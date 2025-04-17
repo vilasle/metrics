@@ -31,7 +31,9 @@ func (r repeater) Exec(ctx context.Context, sql string, args ...interface{}) (er
 func (r repeater) Query(ctx context.Context, sql string, args ...interface{}) (rows *sql.Rows, err error) {
 	r.repeat(func() error {
 		rows, err = r.db.QueryContext(ctx, sql, args...)
-		
+		if err == nil && rows.Err() != nil {
+			err = rows.Err()
+		}
 		return err
 	})
 
