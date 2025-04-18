@@ -9,7 +9,7 @@ import (
 	"github.com/vilasle/metrics/internal/metric"
 )
 
-func TestHTTPSender_Send(t *testing.T) {
+func Test_HTTPTextSender_Send(t *testing.T) {
 	tests := []struct {
 		name      string
 		handler   http.Handler
