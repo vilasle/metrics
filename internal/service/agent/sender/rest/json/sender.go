@@ -11,6 +11,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
@@ -78,7 +79,7 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 	if err := s.addHashSumHeader(req, &content); err != nil {
 		//if could not create hash-sum, but it does not break main logic
 		//that's why we continue and allow to the server decide take this report or no
-		fmt.Println("can not create hash-sum", err)
+		logger.Error("can not create hash-sum", "err", err)
 	}
 
 	resp, err := s.client.Do(req)
@@ -115,7 +116,7 @@ func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 
 		if limit > 0 {
 			continue
-		} 
+		}
 
 		for i := 0; i < s.rateLimit; i++ {
 			errs = append(errs, <-s.resp)
@@ -144,7 +145,7 @@ func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	if err := s.addHashSumHeader(req, &content); err != nil {
 		//if could not create hash-sum, but it does not break main logic
 		//that's why we continue and allow to the server decide take this report or no
-		fmt.Println("can not create hash-sum", err)
+		logger.Error("can not create hash-sum", "err", err)
 	}
 
 	resp, err := s.client.Do(req)
@@ -187,8 +188,8 @@ func (s HTTPJsonSender) addHashSumHeader(req *http.Request, pC *[]byte) error {
 	hash := base64.URLEncoding.EncodeToString(srcHash)
 
 	req.Header.Add("HashSHA256", hash)
-	fmt.Printf("request src hash-sum = %v\n", srcHash)
-	fmt.Printf("request base64 hash-sum = %s\n", hash)
+	logger.Debug("request src hash-sum", "val", srcHash)
+	logger.Debug("request base64 hash-sum", "val", hash)
 
 	return nil
 }

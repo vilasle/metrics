@@ -105,13 +105,13 @@ func getConfig() runConfig {
 }
 
 func main() {
+	logger.Init(os.Stdout, false)
+
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("application is in a panic", err)
+			logger.Error("application is in a panic", "err", err)
 		}
 	}()
-
-	logger.Init(os.Stdout, false)
 
 	defer logger.Close()
 
@@ -159,7 +159,7 @@ func shutdown(srv *rest.HTTPServer) {
 		select {
 		case err := <-stopErr:
 			if err != nil {
-				fmt.Println("server stopped with error", err)
+				logger.Error("server stopped with error", "err", err)
 				srv.ForceStop()
 			} else {
 				os.Exit(0)
@@ -167,7 +167,7 @@ func shutdown(srv *rest.HTTPServer) {
 		case <-tickForce.C:
 			go srv.ForceStop()
 		case <-tickKill.C:
-			fmt.Println("server did not stop during expected time")
+			logger.Error("server did not stop during expected time")
 			os.Exit(1)
 		}
 	}

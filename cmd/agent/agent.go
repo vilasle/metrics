@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
+	"github.com/vilasle/metrics/internal/logger"
 	agent "github.com/vilasle/metrics/internal/service"
 )
 
@@ -45,7 +45,7 @@ func (a collectorAgent) Run(ctx context.Context) {
 	go a.ReportWithContext(newCtx)
 
 	<-ctx.Done()
-	fmt.Println("got cancel from main")
+	logger.Debug("got cancel from main")
 	cancel()
 }
 
@@ -62,7 +62,7 @@ func (a collectorAgent) CollectWithContext(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("collector got cancel signal")
+			logger.Debug("collector got cancel signal")
 			return
 		case <-t.C:
 			a.Collector.Collect()
@@ -72,7 +72,7 @@ func (a collectorAgent) CollectWithContext(ctx context.Context) {
 
 func (a collectorAgent) Report() {
 	if err := a.report(); err != nil {
-		fmt.Printf("failed to report metrics: %v\n", err)
+		logger.Error("failed to report metrics", "err", err)
 	} else {
 		a.resetPoolCounter()
 	}
@@ -84,7 +84,7 @@ func (a collectorAgent) ReportWithContext(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("reporter got cancel signal")
+			logger.Debug("reporter got cancel signal")
 			return
 		case <-t.C:
 			t.Stop()

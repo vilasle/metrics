@@ -2,7 +2,6 @@ package collector
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"runtime"
 	"sync"
@@ -79,7 +78,7 @@ func (c *RuntimeCollector) Collect() {
 		case reflect.Float32, reflect.Float64:
 			c.gauges[v] = metric.NewGaugeMetric(v, fld.Float())
 		default:
-			fmt.Printf("unsupported type %s\n", fld.Kind().String())
+			logger.Error("unsupported type", "type", fld.Kind().String())
 		}
 	}
 	c.mxMetric.Unlock()
