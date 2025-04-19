@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"math/rand/v2"
 	"reflect"
 	"testing"
 
@@ -106,6 +108,20 @@ func TestMetricService_Save(t *testing.T) {
 	}
 }
 
+func BenchmarkMetricService_Save(b *testing.B) {
+	storage := memory.NewMetricRepository()
+	service := MetricService{
+		storage: storage,
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := service.Save(context.TODO(), metric.NewGaugeMetric("test", 1.123))
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
 func TestMetricService_Get(t *testing.T) {
 	type fields struct {
 		//FIXME mock interface for getting errors
@@ -195,6 +211,49 @@ func TestMetricService_Get(t *testing.T) {
 	}
 }
 
+func BenchmarkMetricService_Get(b *testing.B) {
+	storage := memory.NewMetricRepository()
+	service := MetricService{
+		storage: storage,
+	}
+	
+	gaugeQty := 1000
+	counterQty := 1000
+
+	ctx := context.Background()
+	
+	for i := 0; i < gaugeQty; i++ {
+		m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
+		if err := storage.Save(ctx, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	for i := 0; i < counterQty; i++ {
+		m := metric.NewGaugeMetric(fmt.Sprintf("counter%d", i), rand.Float64())
+		if err := storage.Save(ctx, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+	
+	b.ResetTimer()
+
+
+	b.Run("getting gauge", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			name := fmt.Sprintf("gauge%d", i)
+			service.Get(ctx, metric.TypeGauge, name)
+		}
+	})
+
+	b.Run("getting counter", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			name := fmt.Sprintf("counter%d", i)
+			service.Get(ctx, metric.TypeCounter, name)
+		}
+	})
+}
+
 func TestMetricService_All(t *testing.T) {
 	type fields struct {
 		//FIXME mock interface for getting errors
@@ -248,6 +307,38 @@ func TestMetricService_All(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkMetricService_All(b *testing.B) {
+	storage := memory.NewMetricRepository()
+	service := MetricService{
+		storage: storage,
+	}
+	
+	gaugeQty := 1000
+	counterQty := 1000
+
+	ctx := context.Background()
+	
+	for i := 0; i < gaugeQty; i++ {
+		m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
+		if err := storage.Save(ctx, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	for i := 0; i < counterQty; i++ {
+		m := metric.NewGaugeMetric(fmt.Sprintf("counter%d", i), rand.Float64())
+		if err := storage.Save(ctx, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+	
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		service.All(ctx)
+	}	
 }
 
 func TestMetricService_Stats(t *testing.T) {
