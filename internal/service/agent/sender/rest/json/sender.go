@@ -63,7 +63,7 @@ func (s HTTPJsonSender) runWorker() {
 
 func (s HTTPJsonSender) Send(value metric.Metric) error {
 	u := *s.URL
-	content, err := json.Marshal(value)
+	content, err := prepareBodyForReport(value)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 
 func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	u := *s.URL
-	content, err := json.Marshal(values)
+	content, err := prepareBatchBodyForReport(values...)
 	if err != nil {
 		return err
 	}
@@ -192,4 +192,12 @@ func (s HTTPJsonSender) addHashSumHeader(req *http.Request, pC *[]byte) error {
 	logger.Debug("request base64 hash-sum", "val", hash)
 
 	return nil
+}
+
+func prepareBodyForReport(value metric.Metric) ([]byte, error) {
+	return json.Marshal(value)
+}
+
+func prepareBatchBodyForReport(value ...metric.Metric) ([]byte, error) {
+	return json.Marshal(value)
 }

@@ -226,3 +226,24 @@ func TestRuntimeCollector_ResetGetCounterValue(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkRuntimeCollector_Collect(b *testing.B) {
+	defaultMetrics := []string{
+		"Alloc", "BuckHashSys", "Frees", "GCCPUFraction",
+		"GCSys", "HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects",
+		"HeapReleased", "HeapSys", "LastGC", "Lookups", "MCacheInuse",
+		"MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC",
+		"NumForcedGC", "NumGC", "OtherSys", "PauseTotalNs", "StackInuse",
+		"StackSys", "Sys", "TotalAlloc",
+	}
+	c := NewRuntimeCollector()
+
+	c.RegisterMetric(defaultMetrics...)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		c.Collect()
+	}
+}
+
