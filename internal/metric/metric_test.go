@@ -1,6 +1,8 @@
 package metric
 
 import (
+	"fmt"
+	"math/rand/v2"
 	"reflect"
 	"testing"
 
@@ -592,7 +594,7 @@ func TestFromJSONArray(t *testing.T) {
 						"value": 1123.15
 					}
 				]`),
-			want: []Metric{},
+			want:    []Metric{},
 			wantErr: true,
 		},
 	}
@@ -609,4 +611,36 @@ func TestFromJSONArray(t *testing.T) {
 		})
 	}
 
+}
+
+func Benchmark_ParseMetric(b *testing.B) {
+
+	metrics := make([]struct {
+		name       string
+		value      string
+		metricType string
+	}, 2000)
+
+	qtyG := 1000
+	qtyC := 1000
+
+	for i := 0; i < qtyG; i++ {
+		metrics[i].name = fmt.Sprintf("gauge%d", i)
+		metrics[i].value = fmt.Sprintf("%f", rand.Float64())
+		metrics[i].metricType = TypeGauge
+	}
+
+	for i := 0; i < qtyC; i++ {
+		metrics[i+qtyG].name = fmt.Sprintf("counter%d", i)
+		metrics[i+qtyG].value = fmt.Sprintf("%d", rand.Int64())
+		metrics[i+qtyG].metricType = TypeCounter
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for _, metric := range metrics {
+			ParseMetric(metric.name, metric.value, metric.metricType)
+		}
+	}
 }
