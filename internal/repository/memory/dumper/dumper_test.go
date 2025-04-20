@@ -3,6 +3,8 @@ package dumper
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/rand/v2"
 	"os"
 	"sync"
 	"testing"
@@ -11,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vilasle/metrics/internal/metric"
+	"github.com/vilasle/metrics/internal/repository/memory"
 )
 
 func Test_FileStream_NewFileStream(t *testing.T) {
@@ -229,9 +232,6 @@ func Test_dumpedMetric_dumpedContent(t *testing.T) {
 			assert.Equal(t, tt.want, tt.metric.dumpedContent())
 		})
 	}
-}
-
-func Test_FileDumper_NewFileDumper(t *testing.T) {
 }
 
 func Test_FileDumper_Save(t *testing.T) {
@@ -723,5 +723,141 @@ func Test_FileDumper_restore(t *testing.T) {
 
 			assert.Equal(t, tt.want, err)
 		})
+	}
+}
+
+func Benchmark_FileDumper_DumpAll(b *testing.B) {
+	path := "metric.out"
+	defer os.RemoveAll(path)
+
+	storage := memory.NewMetricRepository()
+
+	fs, err := NewFileStream(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	qtyG := 1000
+	qtyC := 1000
+
+	ctx := context.Background()
+	for i := 0; i < qtyG; i++ {
+		m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
+
+		if err := storage.Save(ctx, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	for i := 0; i < qtyC; i++ {
+		m := metric.NewCounterMetric(fmt.Sprintf("counter%d", i), rand.Int64())
+
+		if err := storage.Save(ctx, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	fd := FileDumper{
+		storage:  storage,
+		fs:       fs,
+		srvMx:    &sync.Mutex{},
+		syncSave: true,
+	}
+
+	for i := 0; i < b.N; i++ {
+		fd.DumpAll(ctx)
+	}
+}
+
+func Benchmark_FileDumper_Save(b *testing.B) {
+	path := "metric.out"
+	defer os.RemoveAll(path)
+
+	storage := memory.NewMetricRepository()
+
+	fs, err := NewFileStream(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	fd := FileDumper{
+		storage:  storage,
+		fs:       fs,
+		srvMx:    &sync.Mutex{},
+		syncSave: true,
+	}
+
+	b.ResetTimer()
+
+	ctx := context.Background()
+	b.Run("save gauge metric", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
+
+			if err := fd.Save(ctx, m); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("save counter metric", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			m := metric.NewCounterMetric(fmt.Sprintf("counter%d", i), rand.Int64())
+
+			if err := fd.Save(ctx, m); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
+func Benchmark_FileDumper_restore(b *testing.B) {
+	path := "metric.out"
+	defer os.RemoveAll(path)
+
+	storage := memory.NewMetricRepository()
+
+	fs, err := NewFileStream(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	qtyG := 1000
+	qtyC := 1000
+
+	ctx := context.Background()
+	for i := 0; i < qtyG; i++ {
+		m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
+
+		if err := storage.Save(ctx, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	for i := 0; i < qtyC; i++ {
+		m := metric.NewCounterMetric(fmt.Sprintf("counter%d", i), rand.Int64())
+
+		if err := storage.Save(ctx, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	fd := FileDumper{
+		storage:  storage,
+		fs:       fs,
+		srvMx:    &sync.Mutex{},
+		syncSave: true,
+	}
+
+	if err := fd.DumpAll(ctx); err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		fd.storage = memory.NewMetricRepository()
+
+		if err := fd.restore(ctx); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
