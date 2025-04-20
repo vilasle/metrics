@@ -216,12 +216,12 @@ func BenchmarkMetricService_Get(b *testing.B) {
 	service := MetricService{
 		storage: storage,
 	}
-	
+
 	gaugeQty := 1000
 	counterQty := 1000
 
 	ctx := context.Background()
-	
+
 	for i := 0; i < gaugeQty; i++ {
 		m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
 		if err := storage.Save(ctx, m); err != nil {
@@ -235,9 +235,8 @@ func BenchmarkMetricService_Get(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	
-	b.ResetTimer()
 
+	b.ResetTimer()
 
 	b.Run("getting gauge", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -314,12 +313,12 @@ func BenchmarkMetricService_All(b *testing.B) {
 	service := MetricService{
 		storage: storage,
 	}
-	
+
 	gaugeQty := 1000
 	counterQty := 1000
 
 	ctx := context.Background()
-	
+
 	for i := 0; i < gaugeQty; i++ {
 		m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
 		if err := storage.Save(ctx, m); err != nil {
@@ -333,12 +332,12 @@ func BenchmarkMetricService_All(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		service.All(ctx)
-	}	
+	}
 }
 
 func TestMetricService_Stats(t *testing.T) {

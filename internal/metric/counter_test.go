@@ -183,7 +183,7 @@ func Test_counter_AddValue(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
-			} 
+			}
 			assert.Equal(t, c.value, tt.want)
 		})
 	}
@@ -334,7 +334,7 @@ func Test_counter_String(t *testing.T) {
 
 }
 
-func Test_counter_Float64(t *testing.T){
+func Test_counter_Float64(t *testing.T) {
 	tests := []struct {
 		name    string
 		metrics []counter
@@ -356,7 +356,7 @@ func Test_counter_Float64(t *testing.T){
 					value: 1,
 				},
 			},
-			wants: []float64{123456,123,1},
+			wants: []float64{123456, 123, 1},
 		},
 	}
 
@@ -367,8 +367,7 @@ func Test_counter_Float64(t *testing.T){
 	}
 }
 
-
-func Test_counter_Int64(t *testing.T){
+func Test_counter_Int64(t *testing.T) {
 	tests := []struct {
 		name    string
 		metrics []counter
@@ -390,7 +389,7 @@ func Test_counter_Int64(t *testing.T){
 					value: 1,
 				},
 			},
-			wants: []int64{123456,123,1},
+			wants: []int64{123456, 123, 1},
 		},
 	}
 

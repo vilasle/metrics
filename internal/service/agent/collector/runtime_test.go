@@ -246,4 +246,3 @@ func BenchmarkRuntimeCollector_Collect(b *testing.B) {
 		c.Collect()
 	}
 }
-

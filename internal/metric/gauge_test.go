@@ -322,7 +322,7 @@ func Test_gauge_String(t *testing.T) {
 	}
 }
 
-func Test_gauge_Float64(t *testing.T){
+func Test_gauge_Float64(t *testing.T) {
 	tests := []struct {
 		name    string
 		metrics []gauge
@@ -344,7 +344,7 @@ func Test_gauge_Float64(t *testing.T){
 					value: 1.23456,
 				},
 			},
-			wants: []float64{123456,123.456,1.23456},
+			wants: []float64{123456, 123.456, 1.23456},
 		},
 	}
 
@@ -355,8 +355,7 @@ func Test_gauge_Float64(t *testing.T){
 	}
 }
 
-
-func Test_gauge_Int64(t *testing.T){
+func Test_gauge_Int64(t *testing.T) {
 	tests := []struct {
 		name    string
 		metrics []gauge
@@ -378,7 +377,7 @@ func Test_gauge_Int64(t *testing.T){
 					value: 1.23456,
 				},
 			},
-			wants: []int64{123456,123,1},
+			wants: []int64{123456, 123, 1},
 		},
 	}
 

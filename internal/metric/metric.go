@@ -108,7 +108,7 @@ func FromJSONArray(content []byte) ([]Metric, error) {
 		if object.ID == "" {
 			errs = append(errs, errors.Join(ErrInvalidMetric, fmt.Errorf("%v", object)))
 		}
-		
+
 		if object.MType == TypeGauge {
 			if m, err := createGaugeMetric(object.ID, object.Value); err == nil {
 				rs = append(rs, m)

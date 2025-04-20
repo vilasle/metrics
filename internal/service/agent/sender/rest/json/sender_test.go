@@ -148,10 +148,10 @@ func BenchmarkHTTPSender_prepareBodyForReport(b *testing.B) {
 
 func BenchmarkHTTPSender_prepareBatchBodyForReport(b *testing.B) {
 	metrics := make([]metric.Metric, 1000)
-	for  i := 0; i < 1000; i++ {
+	for i := 0; i < 1000; i++ {
 		metrics[i] = metric.NewGaugeMetric("gauge1", rand.Float64())
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := prepareBatchBodyForReport(metrics...); err != nil {

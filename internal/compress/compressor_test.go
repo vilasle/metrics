@@ -98,7 +98,6 @@ func Test_compressor_Write(t *testing.T) {
 			c.Reset()
 
 			assert.Equal(t, buf.Len(), 0)
-			
 
 		})
 	}
