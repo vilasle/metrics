@@ -1,9 +1,12 @@
 package rest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -558,4 +561,259 @@ func TestDisplayMetricAsJSON(t *testing.T) {
 
 		})
 	}
+}
+
+func BenchmarkUpdateMetricAsPlainText(b *testing.B) {
+	ctxGauge := chi.NewRouteContext()
+	ctxCounter := chi.NewRouteContext()
+
+	for k, v := range map[string]string{"type": "gauge", "name": "gauge1", "value": "12312.3123123"} {
+		ctxGauge.URLParams.Add(k, v)
+	}
+
+	for k, v := range map[string]string{"type": "counter", "name": "counter1", "value": "3434312"} {
+		ctxCounter.URLParams.Add(k, v)
+	}
+
+	storage := memory.NewMetricRepository()
+
+	svc := server.NewMetricService(storage)
+
+	reqG, err := http.NewRequest(http.MethodPost, "/update/{type}/{name}/{value}", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	reqG = reqG.WithContext(context.WithValue(reqG.Context(), chi.RouteCtxKey, ctxGauge))
+	reqG.Header.Set("Content-Type", "text/plain")
+
+	reqC, err := http.NewRequest(http.MethodPost, "/update/{type}/{name}/{value}", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	reqC = reqC.WithContext(context.WithValue(reqC.Context(), chi.RouteCtxKey, ctxCounter))
+	reqC.Header.Set("Content-Type", "text/plain")
+
+	b.ResetTimer()
+
+	b.Run("update gauge", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			rr := httptest.NewRecorder()
+			UpdateMetric(svc).ServeHTTP(rr, reqG)
+			if rr.Code != http.StatusOK {
+				b.Fatalf("expected status code %d, got %d", http.StatusOK, rr.Code)
+			}
+		}
+	})
+
+	b.Run("update counter", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			rr := httptest.NewRecorder()
+			UpdateMetric(svc).ServeHTTP(rr, reqG)
+			if rr.Code != http.StatusOK {
+				b.Fatalf("expected status code %d, got %d", http.StatusOK, rr.Code)
+			}
+		}
+	})
+}
+
+func BenchmarkUpdateMetricAsJSON(b *testing.B) {
+	storage := memory.NewMetricRepository()
+
+	svc := server.NewMetricService(storage)
+
+	gaugeRd := bytes.NewReader([]byte(`{"type": "gauge", "id": "gauge1", "value": 12312.3123123}`))
+	counterRd := bytes.NewReader([]byte(`{"type": "counter", "id": "counter1", "delta": 12312}`))
+
+	reqG, err := http.NewRequest(http.MethodPost, "/update/", gaugeRd)
+	if err != nil {
+		b.Fatal(err)
+	}
+	reqG.Header.Set("Content-Type", "application/json")
+
+	reqC, err := http.NewRequest(http.MethodPost, "/update/", counterRd)
+	if err != nil {
+		b.Fatal(err)
+	}
+	reqC.Header.Set("Content-Type", "application/json")
+
+	b.ResetTimer()
+
+	b.Run("update gauge", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			rr := httptest.NewRecorder()
+			h := UpdateMetric(svc)
+			h.ServeHTTP(rr, reqG)
+		}
+	})
+
+	b.Run("update counter", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			rr := httptest.NewRecorder()
+			h := UpdateMetric(svc)
+			h.ServeHTTP(rr, reqC)
+		}
+	})
+}
+
+func BenchmarkUpdateMetricAsBatch(b *testing.B) {
+	storage := memory.NewMetricRepository()
+
+	batch := make([]metric.Metric, 0, 2000)
+
+	qtyG := 1000
+	qtyC := 1000
+
+	for i := 0; i < qtyG; i++ {
+		batch = append(batch, metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64()))
+	}
+
+	for i := 0; i < qtyC; i++ {
+		batch = append(batch, metric.NewCounterMetric(fmt.Sprintf("counter%d", i), rand.Int64()))
+	}
+
+	content, err := json.Marshal(batch)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	rd := bytes.NewReader(content)
+
+	svc := server.NewMetricService(storage)
+
+	req, err := http.NewRequest(http.MethodPost, "/updates/", rd)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		rr := httptest.NewRecorder()
+		h := BatchUpdate(svc)
+		h.ServeHTTP(rr, req)
+	}
+}
+
+func BenchmarkDisplayAllMetricsAsHtml(b *testing.B) {
+	req, err := http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	ctx := chi.NewRouteContext()
+
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
+
+	storage := memory.NewMetricRepository()
+	svc := server.NewMetricService(storage)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		rr := httptest.NewRecorder()
+		handler := DisplayAllMetrics(svc)
+		handler.ServeHTTP(rr, req)
+	}
+}
+
+func BenchmarkDisplayMetricAsTextPlain(b *testing.B) {
+	storage := memory.NewMetricRepository()
+	svc := server.NewMetricService(storage)
+
+	qtyG := 10
+	qtyC := 10
+	for i := 0; i < qtyG; i++ {
+		m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
+
+		if err := storage.Save(context.TODO(), m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	for i := 0; i < qtyC; i++ {
+		m := metric.NewCounterMetric(fmt.Sprintf("counter%d", i), rand.Int64())
+		if err := storage.Save(context.TODO(), m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	ctxG := chi.NewRouteContext()
+
+	for k, v := range map[string]string{"type": "gauge", "name": "gauge1"} {
+		ctxG.URLParams.Add(k, v)
+	}
+	reqG, err := http.NewRequest(http.MethodGet, "/value/{type}/{name}", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	reqG = reqG.WithContext(context.WithValue(reqG.Context(), chi.RouteCtxKey, ctxG))
+
+	ctxC := chi.NewRouteContext()
+
+	for k, v := range map[string]string{"type": "gauge", "name": "gauge1"} {
+		ctxC.URLParams.Add(k, v)
+	}
+	reqC, err := http.NewRequest(http.MethodGet, "/value/{type}/{name}", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	reqC = reqC.WithContext(context.WithValue(reqC.Context(), chi.RouteCtxKey, ctxC))
+
+	b.ResetTimer()
+
+	b.Run("get gauge metric", func(b *testing.B) {
+		rr := httptest.NewRecorder()
+		handler := DisplayMetric(svc)
+		handler.ServeHTTP(rr, reqG)
+	})
+
+	b.Run("get counter metric", func(b *testing.B) {
+		rr := httptest.NewRecorder()
+		handler := DisplayMetric(svc)
+		handler.ServeHTTP(rr, reqC)
+	})
+}
+
+func BenchmarkDisplayMetricAsJSON(b *testing.B) {
+	storage := memory.NewMetricRepository()
+	svc := server.NewMetricService(storage)
+
+	qtyG := 10
+	qtyC := 10
+	for i := 0; i < qtyG; i++ {
+		m := metric.NewGaugeMetric(fmt.Sprintf("gauge%d", i), rand.Float64())
+
+		if err := storage.Save(context.TODO(), m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	for i := 0; i < qtyC; i++ {
+		m := metric.NewCounterMetric(fmt.Sprintf("counter%d", i), rand.Int64())
+		if err := storage.Save(context.TODO(), m); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	reqG, err := http.NewRequest(http.MethodGet, "/value/", bytes.NewReader([]byte(`{"type": "gauge", "id": "gauge1"}`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	reqC, err := http.NewRequest(http.MethodGet, "/value/", bytes.NewReader([]byte(`{"type": "counter", "id": "counter1"}`)))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	b.Run("get gauge metric as json", func(b *testing.B) {
+		rr := httptest.NewRecorder()
+		handler := DisplayMetric(svc)
+		handler.ServeHTTP(rr, reqG)
+	})
+
+	b.Run("get counter metric as json", func(b *testing.B) {
+		rr := httptest.NewRecorder()
+		handler := DisplayMetric(svc)
+		handler.ServeHTTP(rr, reqC)
+	})
 }
