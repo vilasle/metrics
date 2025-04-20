@@ -95,7 +95,7 @@ func getConfig() runConfig {
 }
 
 func main() {
-	logger.Init(os.Stdout, true)
+	logger.Init(os.Stdout, false)
 
 	conf := getConfig()
 
