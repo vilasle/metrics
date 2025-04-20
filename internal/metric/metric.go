@@ -11,6 +11,7 @@ const (
 	TypeCounter = "counter"
 )
 
+//TODO add godoc
 type Metric interface {
 	Name() string
 	Value() string
@@ -23,6 +24,7 @@ type Metric interface {
 	MarshalJSON() ([]byte, error)
 }
 
+//TODO add godoc
 func ParseMetric(name, value, metricType string) (Metric, error) {
 	if err := isNotEmpty(name, value); err != nil {
 		return nil, err
@@ -38,14 +40,17 @@ func ParseMetric(name, value, metricType string) (Metric, error) {
 	}
 }
 
+//TODO add godoc
 func NewGaugeMetric(name string, value float64) Metric {
 	return &gauge{name: name, value: value}
 }
 
+//TODO add godoc
 func NewCounterMetric(name string, value int64) Metric {
 	return &counter{name: name, value: value}
 }
 
+//TODO add godoc
 func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
 	var (
 		sum  int64
@@ -67,6 +72,7 @@ func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
 	return &counter{name: name, value: sum}, nil
 }
 
+//TODO add godoc
 func FromJSON(content []byte) (Metric, error) {
 	object := struct {
 		ID    string   `json:"id"`
@@ -90,6 +96,7 @@ func FromJSON(content []byte) (Metric, error) {
 	}
 }
 
+//TODO add godoc
 func FromJSONArray(content []byte) ([]Metric, error) {
 	rs := make([]Metric, 0)
 	errs := make([]error, 0)

@@ -11,14 +11,17 @@ import (
 	"github.com/vilasle/metrics/internal/service"
 )
 
+//TODO add godoc
 type MetricService struct {
 	storage repository.MetricRepository
 }
 
+//TODO add godoc
 func NewMetricService(storage repository.MetricRepository) *MetricService {
 	return &MetricService{storage: storage}
 }
 
+//TODO add godoc
 func (s MetricService) Save(ctx context.Context, entity ...metric.Metric) error {
 	if err := s.storage.Save(ctx, entity...); err != nil {
 		return errors.Join(service.ErrStorage, err)
@@ -26,6 +29,7 @@ func (s MetricService) Save(ctx context.Context, entity ...metric.Metric) error 
 	return nil
 }
 
+//TODO add godoc
 func (s MetricService) Get(ctx context.Context, metricType, name string) (metric.Metric, error) {
 	metrics, err := s.storage.Get(ctx, metricType, name)
 	if err != nil {
@@ -46,6 +50,7 @@ func (s MetricService) Get(ctx context.Context, metricType, name string) (metric
 	}
 }
 
+//TODO add godoc
 func (s MetricService) All(ctx context.Context) ([]metric.Metric, error) {
 	allGauges, allCounters, err := s.all(ctx)
 	if err != nil {
@@ -73,6 +78,7 @@ func (s MetricService) All(ctx context.Context) ([]metric.Metric, error) {
 	return rs, nil
 }
 
+//TODO add godoc
 func (s MetricService) Stats(ctx context.Context) ([]metric.Metric, error) {
 	allGauges, allCounters, err := s.all(ctx)
 	if err != nil {
@@ -86,6 +92,7 @@ func (s MetricService) Stats(ctx context.Context) ([]metric.Metric, error) {
 	return rs, nil
 }
 
+//TODO add godoc
 func (s MetricService) Ping(ctx context.Context) error {
 	newCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -96,6 +103,7 @@ func (s MetricService) Ping(ctx context.Context) error {
 	return err
 }
 
+//TODO add godoc
 func (s MetricService) Close() {
 	s.storage.Close()
 }

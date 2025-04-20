@@ -22,6 +22,7 @@ const (
 
 type initOpt func(context.Context, *FileDumper) error
 
+//TODO add godoc
 type Config struct {
 	Timeout time.Duration
 	Restore bool
@@ -49,6 +50,7 @@ func (d dumpedMetric) dumpedContent() []byte {
 	return []byte(c)
 }
 
+//TODO add godoc
 type FileDumper struct {
 	fs       SerialWriter
 	storage  repository.MetricRepository
@@ -56,6 +58,7 @@ type FileDumper struct {
 	srvMx    *sync.Mutex
 }
 
+//TODO add godoc
 /*
 On during work on sync mode we will add only new lines to file
 example:
@@ -90,6 +93,7 @@ func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	return d, nil
 }
 
+//TODO add godoc
 func (d *FileDumper) Save(ctx context.Context, entity ...metric.Metric) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
@@ -111,6 +115,7 @@ func (d *FileDumper) Save(ctx context.Context, entity ...metric.Metric) error {
 	return errors.Join(errs...)
 }
 
+//TODO add godoc
 func (d *FileDumper) DumpAll(ctx context.Context) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
@@ -135,14 +140,17 @@ func (d *FileDumper) DumpAll(ctx context.Context) error {
 	return err
 }
 
+//TODO add godoc
 func (d *FileDumper) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
 	return d.storage.Get(ctx, metricType, filterName...)
 }
 
+//TODO add godoc
 func (d *FileDumper) Ping(ctx context.Context) error {
 	return d.storage.Ping(ctx)
 }
 
+//TODO add godoc
 func (d *FileDumper) Close() {
 	d.storage.Close()
 }

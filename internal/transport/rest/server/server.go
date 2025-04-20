@@ -10,12 +10,14 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+//TODO add godoc
 type HTTPServer struct {
 	srv     *http.Server
 	mux     *chi.Mux
 	running atomic.Bool
 }
 
+//TODO add godoc
 func NewHTTPServer(addr string, middlewareOptions ...func(http.Handler) http.Handler) *HTTPServer {
 	mux := chi.NewRouter()
 
@@ -41,6 +43,7 @@ func NewHTTPServer(addr string, middlewareOptions ...func(http.Handler) http.Han
 	return srv
 }
 
+//TODO add godoc
 func (s *HTTPServer) Register(path string, handler http.Handler, methods ...string) {
 	if len(methods) == 0 {
 		s.mux.Handle(path, handler)
@@ -52,6 +55,7 @@ func (s *HTTPServer) Register(path string, handler http.Handler, methods ...stri
 	}
 }
 
+//TODO add godoc
 func (s *HTTPServer) Start() error {
 	s.srv.Handler = s.mux
 	s.running.Swap(true)
@@ -67,11 +71,13 @@ func (s *HTTPServer) Start() error {
 	return err
 }
 
+//TODO add godoc
 func (s *HTTPServer) IsRunning() bool {
 	v := s.running.Load()
 	return v
 }
 
+//TODO add godoc
 func (s *HTTPServer) Stop() error {
 	if err := s.srv.Shutdown(context.Background()); err != nil {
 		s.running.Swap(false)
@@ -80,6 +86,7 @@ func (s *HTTPServer) Stop() error {
 	return nil
 }
 
+//TODO add godoc
 func (s *HTTPServer) ForceStop() error {
 	return s.srv.Close()
 }

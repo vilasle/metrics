@@ -16,6 +16,7 @@ import (
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
 
+//TODO add godoc
 type HTTPJsonSender struct {
 	*url.URL
 	httpClient
@@ -25,6 +26,7 @@ type HTTPJsonSender struct {
 	rateLimit  int
 }
 
+//TODO add godoc
 func NewHTTPJsonSender(addr string, hashSumKey string, rateLimit int) (HTTPJsonSender, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
@@ -44,23 +46,7 @@ func NewHTTPJsonSender(addr string, hashSumKey string, rateLimit int) (HTTPJsonS
 	return s, nil
 }
 
-func (s HTTPJsonSender) runWorkers(workersQty int) {
-	rate := workersQty
-	if rate < 1 {
-		rate = 1
-	}
-
-	for i := 0; i < rate; i++ {
-		go s.runWorker()
-	}
-}
-
-func (s HTTPJsonSender) runWorker() {
-	for value := range s.req {
-		s.resp <- s.Send(value)
-	}
-}
-
+//TODO add godoc
 func (s HTTPJsonSender) Send(value metric.Metric) error {
 	u := *s.URL
 	content, err := prepareBodyForReport(value)
@@ -68,7 +54,7 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 		return err
 	}
 
-	req, err := s.NewRequest(http.MethodPost, u.String(), content)
+	req, err := s.newRequest(http.MethodPost, u.String(), content)
 	if err != nil {
 		return err
 	}
@@ -106,6 +92,7 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 	return err
 }
 
+//TODO add godoc
 func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 	limit := s.rateLimit
 	errs := make([]error, 0)
@@ -127,6 +114,7 @@ func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 	return errors.Join(errs...)
 }
 
+//TODO add godoc
 func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	u := *s.URL
 	content, err := prepareBatchBodyForReport(values...)
@@ -134,7 +122,7 @@ func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 		return err
 	}
 
-	req, err := s.NewRequest(http.MethodPost, u.String(), content)
+	req, err := s.newRequest(http.MethodPost, u.String(), content)
 	if err != nil {
 		return err
 	}
@@ -171,6 +159,23 @@ func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	}
 
 	return err
+}
+
+func (s HTTPJsonSender) runWorkers(workersQty int) {
+	rate := workersQty
+	if rate < 1 {
+		rate = 1
+	}
+
+	for i := 0; i < rate; i++ {
+		go s.runWorker()
+	}
+}
+
+func (s HTTPJsonSender) runWorker() {
+	for value := range s.req {
+		s.resp <- s.Send(value)
+	}
 }
 
 func (s HTTPJsonSender) addHashSumHeader(req *http.Request, pC *[]byte) error {

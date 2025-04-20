@@ -19,6 +19,7 @@ type (
 	}
 )
 
+//TODO add godoc
 func NewCompressor(level int) CompressorWriter {
 	buf := &bytes.Buffer{}
 	gw, err := gzip.NewWriterLevel(buf, level)
@@ -32,16 +33,19 @@ func NewCompressor(level int) CompressorWriter {
 	}
 }
 
+//TODO add godoc
 func (c *compressor) Write(content []byte) (int, error) {
 	n, err := c.Writer.Write(content)
 	c.Writer.Close()
 	return n, err
 }
 
+//TODO add godoc
 func (c *compressor) Bytes() []byte {
 	return c.Buffer.Bytes()
 }
 
+//TODO add godoc
 func (c *compressor) Reset() {
 	c.Writer.Reset(c.Buffer)
 	c.Buffer.Reset()

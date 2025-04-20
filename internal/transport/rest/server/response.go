@@ -8,6 +8,7 @@ import (
 	"github.com/vilasle/metrics/internal/service"
 )
 
+//TODO add godoc
 type Response interface {
 	Write(w http.ResponseWriter)
 }
@@ -17,46 +18,56 @@ type simpleResponse struct {
 	err     error
 }
 
+//TODO add godoc
 func (r simpleResponse) Write(w http.ResponseWriter) {
 	w.WriteHeader(getStatusCode(r.err))
 
 	w.Write(r.content)
 }
 
+//TODO add godoc
 type JSONResponse struct {
 	sp simpleResponse
 }
 
+//TODO add godoc
 func NewJSONResponse(content []byte, err error) Response {
 	return JSONResponse{sp: simpleResponse{content: content, err: err}}
 }
 
+//TODO add godoc
 func (r JSONResponse) Write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "application/json")
 	r.sp.Write(w)
 }
 
+//TODO add godoc
 type TextResponse struct {
 	sp simpleResponse
 }
 
+//TODO add godoc
 func NewTextResponse(content []byte, err error) Response {
 	return TextResponse{sp: simpleResponse{content: content, err: err}}
 }
 
+//TODO add godoc
 func (r TextResponse) Write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "text/plain")
 	r.sp.Write(w)
 }
 
+//TODO add godoc
 type HTMLResponse struct {
 	sp simpleResponse
 }
 
+//TODO add godoc
 func NewHTMLResponse(content []byte, err error) Response {
 	return HTMLResponse{sp: simpleResponse{content: content, err: err}}
 }
 
+//TODO add godoc
 func (r HTMLResponse) Write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "text/html")
 	r.sp.Write(w)

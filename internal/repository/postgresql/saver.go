@@ -21,7 +21,7 @@ type gaugeSaver struct {
 }
 
 func (s gaugeSaver) save(ctx context.Context, m metric.Metric) error {
-	return s.db.Exec(ctx, s.saveTxt(), m.Name(), m.Float64())
+	return s.db.exec(ctx, s.saveTxt(), m.Name(), m.Float64())
 }
 
 func (s gaugeSaver) saveTxt() string {
@@ -37,7 +37,7 @@ type counterSaver struct {
 }
 
 func (s counterSaver) save(ctx context.Context, m metric.Metric) error {
-	return s.db.Exec(ctx, s.saveTxt(), m.Name(), m.Int64())
+	return s.db.exec(ctx, s.saveTxt(), m.Name(), m.Int64())
 }
 
 func (s counterSaver) saveTxt() string {

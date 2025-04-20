@@ -13,6 +13,7 @@ type gaugeStorage map[string]metric.Metric
 
 type counterStorage map[string][]metric.Metric
 
+//TODO add godoc
 type MemoryMetricRepository struct {
 	mxGauge   *sync.Mutex
 	gauges    gaugeStorage
@@ -20,6 +21,7 @@ type MemoryMetricRepository struct {
 	counters  counterStorage
 }
 
+//TODO add godoc
 func NewMetricRepository() *MemoryMetricRepository {
 	return &MemoryMetricRepository{
 		mxGauge:   &sync.Mutex{},
@@ -29,6 +31,7 @@ func NewMetricRepository() *MemoryMetricRepository {
 	}
 }
 
+//TODO add godoc
 func (r *MemoryMetricRepository) Save(ctx context.Context, entity ...metric.Metric) error {
 	switch len(entity) {
 	case 0:
@@ -37,19 +40,21 @@ func (r *MemoryMetricRepository) Save(ctx context.Context, entity ...metric.Metr
 		e := entity[0]
 		return r.getSaver(e.Type()).save(e)
 	default:
-		//TODO wrap it
 		return r.saveAll(entity...)
 	}
 }
 
+//TODO add godoc
 func (r *MemoryMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
 	return r.getGetter(metricType).get(filterName...)
 }
 
+//TODO add godoc
 func (r *MemoryMetricRepository) Ping(ctx context.Context) error {
 	return nil
 }
 
+//TODO add godoc
 func (r *MemoryMetricRepository) Close() {}
 
 func (r *MemoryMetricRepository) getSaver(metricType string) saver {

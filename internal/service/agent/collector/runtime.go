@@ -12,6 +12,7 @@ import (
 
 type eventHandler func(c *RuntimeCollector)
 
+//TODO add godoc
 type RuntimeCollector struct {
 	counters map[string]metric.Metric
 	gauges   map[string]metric.Metric
@@ -20,6 +21,7 @@ type RuntimeCollector struct {
 	mxMetric *sync.Mutex
 }
 
+//TODO add godoc
 func NewRuntimeCollector() *RuntimeCollector {
 	return &RuntimeCollector{
 		counters: make(map[string]metric.Metric, 0),
@@ -30,6 +32,7 @@ func NewRuntimeCollector() *RuntimeCollector {
 	}
 }
 
+//TODO add godoc
 func (c *RuntimeCollector) RegisterMetric(metrics ...string) error {
 	errs := make([]error, 0)
 
@@ -47,10 +50,12 @@ func (c *RuntimeCollector) RegisterMetric(metrics ...string) error {
 	return errors.Join(errs...)
 }
 
+//TODO add godoc
 func (c *RuntimeCollector) RegisterEvent(event eventHandler) {
 	c.events = append(c.events, event)
 }
 
+//TODO add godoc
 func (c *RuntimeCollector) Collect() {
 	if len(c.metrics) == 0 {
 		return
@@ -86,12 +91,7 @@ func (c *RuntimeCollector) Collect() {
 	c.execEvents()
 }
 
-func (c *RuntimeCollector) execEvents() {
-	for _, v := range c.events {
-		v(c)
-	}
-}
-
+//TODO add godoc
 func (c *RuntimeCollector) AllMetrics() []metric.Metric {
 	c.mxMetric.Lock()
 	defer c.mxMetric.Unlock()
@@ -112,6 +112,7 @@ func (c *RuntimeCollector) AllMetrics() []metric.Metric {
 	return metrics
 }
 
+//TODO add godoc
 func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 	c.mxMetric.Lock()
 	defer c.mxMetric.Unlock()
@@ -123,6 +124,7 @@ func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 	}
 }
 
+//TODO add godoc
 func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
 	c.mxMetric.Lock()
 	defer c.mxMetric.Unlock()
@@ -133,6 +135,7 @@ func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
 	return metric.NewGaugeMetric(name, 0)
 }
 
+//TODO add godoc
 func (c *RuntimeCollector) SetValue(value metric.Metric) {
 	c.mxMetric.Lock()
 	switch value.Type() {
@@ -144,6 +147,7 @@ func (c *RuntimeCollector) SetValue(value metric.Metric) {
 	c.mxMetric.Unlock()
 }
 
+//TODO add godoc
 func (c *RuntimeCollector) ResetCounter(counterName string) {
 	m := metric.NewCounterMetric(counterName, 0)
 
@@ -151,3 +155,11 @@ func (c *RuntimeCollector) ResetCounter(counterName string) {
 	c.counters[counterName] = m
 	c.mxMetric.Unlock()
 }
+
+func (c *RuntimeCollector) execEvents() {
+	for _, v := range c.events {
+		v(c)
+	}
+}
+
+

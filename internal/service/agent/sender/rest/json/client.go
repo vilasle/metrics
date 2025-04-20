@@ -17,7 +17,7 @@ type httpClient struct {
 	encodersPool   *sync.Pool
 }
 
-func (h httpClient) NewRequest(method, url string, body []byte) (*http.Request, error) {
+func (h httpClient) newRequest(method, url string, body []byte) (*http.Request, error) {
 	if body == nil {
 		return http.NewRequest(method, url, nil)
 	}
@@ -63,8 +63,4 @@ func newClient(useCompression bool) httpClient {
 			},
 		},
 	}
-}
-
-func (h httpClient) Do(req *http.Request) (*http.Response, error) {
-	return h.client.Do(req)
 }

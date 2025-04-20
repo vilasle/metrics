@@ -12,18 +12,22 @@ type gauge struct {
 	value float64
 }
 
+//TODO add godoc
 func (c gauge) Name() string {
 	return c.name
 }
 
+//TODO add godoc
 func (c gauge) Value() string {
 	return strconv.FormatFloat(c.value, 'f', -1, 64)
 }
 
+//TODO add godoc
 func (c gauge) Type() string {
 	return TypeGauge
 }
 
+//TODO add godoc
 func (c *gauge) AddValue(val any) error {
 	if v, ok := val.(float64); ok {
 		c.value += v
@@ -33,6 +37,7 @@ func (c *gauge) AddValue(val any) error {
 	return nil
 }
 
+//TODO add godoc
 func (c *gauge) SetValue(val any) error {
 	if v, ok := val.(float64); ok {
 		c.value = v
@@ -42,6 +47,7 @@ func (c *gauge) SetValue(val any) error {
 	return nil
 }
 
+//TODO add godoc
 func (c gauge) MarshalJSON() ([]byte, error) {
 	metric := struct {
 		ID    string  `json:"id"`
@@ -55,14 +61,17 @@ func (c gauge) MarshalJSON() ([]byte, error) {
 	return json.Marshal(metric)
 }
 
+//TODO add godoc
 func (c gauge) String() string {
 	return fmt.Sprintf("{type: %s; name: %s; value: %f}", c.Type(), c.name, c.value)
 }
 
+//TODO add godoc
 func (c gauge) Float64() float64 {
 	return c.value
 }
 
+//TODO add godoc
 func (c gauge) Int64() int64 {
 	return int64(c.value)
 }

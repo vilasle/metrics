@@ -49,7 +49,6 @@ func (m wrongMetric) Int64() int64 {
 
 func TestMetricService_Save(t *testing.T) {
 	type fields struct {
-		//FIXME mock interface for getting errors
 		storage repository.MetricRepository
 	}
 	type args struct {
@@ -124,7 +123,6 @@ func BenchmarkMetricService_Save(b *testing.B) {
 
 func TestMetricService_Get(t *testing.T) {
 	type fields struct {
-		//FIXME mock interface for getting errors
 		storage repository.MetricRepository
 	}
 
@@ -255,7 +253,6 @@ func BenchmarkMetricService_Get(b *testing.B) {
 
 func TestMetricService_All(t *testing.T) {
 	type fields struct {
-		//FIXME mock interface for getting errors
 		storage repository.MetricRepository
 	}
 	tests := []struct {
@@ -342,7 +339,6 @@ func BenchmarkMetricService_All(b *testing.B) {
 
 func TestMetricService_Stats(t *testing.T) {
 	type fields struct {
-		//FIXME mock interface for getting errors
 		storage repository.MetricRepository
 	}
 	tests := []struct {

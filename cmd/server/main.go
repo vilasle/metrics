@@ -212,7 +212,6 @@ func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepo
 }
 
 func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
-
 	db, err := sql.Open("pgx/v5", config.databaseDSN)
 	if err != nil {
 		return nil, err

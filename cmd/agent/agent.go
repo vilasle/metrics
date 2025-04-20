@@ -22,7 +22,7 @@ type delay struct {
 	report  time.Duration
 	collect time.Duration
 }
-
+//TODO add godoc
 func NewCollectorAgent(collector agent.Collector, sender agent.Sender, delaySetting delay) collectorAgent {
 	return collectorAgent{
 		Collector: collector,
@@ -38,6 +38,7 @@ func NewCollectorAgent(collector agent.Collector, sender agent.Sender, delaySett
 	}
 }
 
+//TODO add godoc
 func (a collectorAgent) Run(ctx context.Context) {
 	newCtx, cancel := context.WithCancel(ctx)
 
@@ -49,6 +50,7 @@ func (a collectorAgent) Run(ctx context.Context) {
 	cancel()
 }
 
+//TODO add godoc
 func (a collectorAgent) Collect() {
 	a.mx.Lock()
 	defer a.mx.Unlock()
@@ -56,6 +58,7 @@ func (a collectorAgent) Collect() {
 	a.Collector.Collect()
 }
 
+//TODO add godoc
 func (a collectorAgent) CollectWithContext(ctx context.Context) {
 	t := time.NewTicker(a.collectDelay)
 	defer t.Stop()
@@ -70,6 +73,7 @@ func (a collectorAgent) CollectWithContext(ctx context.Context) {
 	}
 }
 
+//TODO add godoc
 func (a collectorAgent) Report() {
 	if err := a.report(); err != nil {
 		logger.Error("failed to report metrics", "err", err)
@@ -78,6 +82,7 @@ func (a collectorAgent) Report() {
 	}
 }
 
+//TODO add godoc
 func (a collectorAgent) ReportWithContext(ctx context.Context) {
 	t := time.NewTicker(a.reportDelay)
 	defer t.Stop()

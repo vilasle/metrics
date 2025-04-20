@@ -21,14 +21,14 @@ func (r repeater) repeat(fn func() error) (err error) {
 	return err
 }
 
-func (r repeater) Exec(ctx context.Context, sql string, args ...interface{}) (err error) {
+func (r repeater) exec(ctx context.Context, sql string, args ...interface{}) (err error) {
 	return r.repeat(func() error {
 		_, err := r.db.ExecContext(ctx, sql, args...)
 		return err
 	})
 }
 
-func (r repeater) Query(ctx context.Context, sql string, args ...interface{}) (rows *sql.Rows, err error) {
+func (r repeater) query(ctx context.Context, sql string, args ...interface{}) (rows *sql.Rows, err error) {
 	r.repeat(func() error {
 		rows, err = r.db.QueryContext(ctx, sql, args...)
 		if err == nil && rows.Err() != nil {
@@ -40,16 +40,16 @@ func (r repeater) Query(ctx context.Context, sql string, args ...interface{}) (r
 	return rows, err
 }
 
-func (r repeater) Ping(ctx context.Context) (err error) {
+func (r repeater) ping(ctx context.Context) (err error) {
 	return r.repeat(func() error {
 		return r.db.PingContext(ctx)
 	})
 }
 
-func (r repeater) Close() {
+func (r repeater) close() {
 	r.db.Close()
 }
 
-func (r repeater) Begin(ctx context.Context) (*sql.Tx, error) {
+func (r repeater) begin(ctx context.Context) (*sql.Tx, error) {
 	return r.db.BeginTx(ctx, nil)
 }

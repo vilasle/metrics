@@ -10,10 +10,12 @@ import (
 	"github.com/vilasle/metrics/internal/repository"
 )
 
+//TODO add godoc
 type PostgresqlMetricRepository struct {
 	db repeater
 }
 
+//TODO add godoc
 func NewRepository(db *sql.DB) (*PostgresqlMetricRepository, error) {
 	r := &PostgresqlMetricRepository{
 		db: repeater{
@@ -23,8 +25,10 @@ func NewRepository(db *sql.DB) (*PostgresqlMetricRepository, error) {
 	}
 
 	ctx := context.Background()
-	//TODO use ctx with timeout
-	err := r.Ping(ctx)
+	ctxTm, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	err := r.Ping(ctxTm)
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +36,7 @@ func NewRepository(db *sql.DB) (*PostgresqlMetricRepository, error) {
 	return r, err
 }
 
+//TODO add godoc
 func (r *PostgresqlMetricRepository) Save(ctx context.Context, entity ...metric.Metric) error {
 	switch len(entity) {
 	case 0:
@@ -40,9 +45,23 @@ func (r *PostgresqlMetricRepository) Save(ctx context.Context, entity ...metric.
 		e := entity[0]
 		return r.getSaver(e.Type()).save(ctx, e)
 	default:
-		//TODO wrap it
 		return r.saveAll(ctx, entity...)
 	}
+}
+
+//TODO add godoc
+func (r *PostgresqlMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
+	return r.getGetter(metricType).get(ctx, filterName...)
+}
+
+//TODO add godoc
+func (r *PostgresqlMetricRepository) Ping(ctx context.Context) error {
+	return r.db.ping(ctx)
+}
+
+//TODO add godoc
+func (r *PostgresqlMetricRepository) Close() {
+	r.db.close()
 }
 
 func (r *PostgresqlMetricRepository) getSaver(metricType string) saver {
@@ -57,7 +76,7 @@ func (r *PostgresqlMetricRepository) getSaver(metricType string) saver {
 }
 
 func (r *PostgresqlMetricRepository) saveAll(ctx context.Context, entity ...metric.Metric) error {
-	tx, err := r.db.Begin(ctx)
+	tx, err := r.db.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -76,10 +95,6 @@ func (r *PostgresqlMetricRepository) saveAll(ctx context.Context, entity ...metr
 	return tx.Commit()
 }
 
-func (r *PostgresqlMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
-	return r.getGetter(metricType).get(ctx, filterName...)
-}
-
 func (r *PostgresqlMetricRepository) getGetter(metricType string) getter {
 	switch metricType {
 	case metric.TypeGauge:
@@ -91,16 +106,8 @@ func (r *PostgresqlMetricRepository) getGetter(metricType string) getter {
 	}
 }
 
-func (r *PostgresqlMetricRepository) Ping(ctx context.Context) error {
-	return r.db.Ping(ctx)
-}
-
-func (r *PostgresqlMetricRepository) Close() {
-	r.db.Close()
-}
-
 func (r *PostgresqlMetricRepository) initMetadata(ctx context.Context) error {
-	if err := r.db.Exec(ctx, createTableTxt()); err != nil {
+	if err := r.db.exec(ctx, createTableTxt()); err != nil {
 		return errors.Join(repository.ErrInitializeMetadata, err)
 	}
 	return nil
