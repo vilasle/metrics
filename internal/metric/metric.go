@@ -11,25 +11,43 @@ const (
 	TypeCounter = "counter"
 )
 
-//TODO add godoc
+//Metric provided way for getting information about metric and change value
 type Metric interface {
+	//Name returns name of metric
 	Name() string
+
+	//Value returns value of metric as string
 	Value() string
+	
+	//Type returns type of metric
 	Type() string
+
+	//SetValue sets value to metric, accepted types depends on metric type
 	SetValue(any) error
+
+	//AddValue adds value to metric, accept int64 or float64
 	AddValue(any) error
+
+	//Float64 returns float64 representation of metric
 	Float64() float64
+	
+	//Int64 returns int64 representation of metric
 	Int64() int64
+	
+	//String returns string representation of metric
+	//representation string likes {type: metric_type; name: metric_name; value: metric_value}
 	String() string
+
+	//MarshalJSON returns json representation of metric
 	MarshalJSON() ([]byte, error)
 }
 
-//TODO add godoc
+//ParseMetric returns Metric or error 
+//checking process include define metricType and check that name and value are not empty
 func ParseMetric(name, value, metricType string) (Metric, error) {
 	if err := isNotEmpty(name, value); err != nil {
 		return nil, err
 	}
-
 	switch metricType {
 	case TypeGauge:
 		return parseGauge(name, value)
@@ -40,17 +58,18 @@ func ParseMetric(name, value, metricType string) (Metric, error) {
 	}
 }
 
-//TODO add godoc
+//NewGaugeMetric returns new gauge metric
 func NewGaugeMetric(name string, value float64) Metric {
 	return &gauge{name: name, value: value}
 }
 
-//TODO add godoc
+//NewCounterMetric returns new counter metric
 func NewCounterMetric(name string, value int64) Metric {
 	return &counter{name: name, value: value}
 }
 
-//TODO add godoc
+//CreateSummedCounter join metrics to one and return this. 
+//New value for metric is sum of value of metrics from slice   
 func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
 	var (
 		sum  int64
@@ -72,7 +91,7 @@ func CreateSummedCounter(name string, metrics []Metric) (Metric, error) {
 	return &counter{name: name, value: sum}, nil
 }
 
-//TODO add godoc
+//FromJSON parse metric from json string and return Metric or error
 func FromJSON(content []byte) (Metric, error) {
 	object := struct {
 		ID    string   `json:"id"`
@@ -96,7 +115,7 @@ func FromJSON(content []byte) (Metric, error) {
 	}
 }
 
-//TODO add godoc
+//FromJSONArray parse metrics from json array and return slice of Metric or error
 func FromJSONArray(content []byte) ([]Metric, error) {
 	rs := make([]Metric, 0)
 	errs := make([]error, 0)

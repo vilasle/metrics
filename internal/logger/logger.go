@@ -21,14 +21,15 @@ func init() {
 	logger = baseLogger.Sugar()
 }
 
-//TODO add godoc
-type WriterSyncer interface {
+type writerSyncer interface {
 	io.Writer
 	Sync() error
 }
 
-//TODO add godoc
-func Init(wrt WriterSyncer, debug bool) {
+//Init - initialize logger
+// wrt - where need to write logs 
+// debug - if true it set DebugLevel, if false it set InfoLevel 
+func Init(wrt writerSyncer, debug bool) {
 	Close()
 
 	level := zap.InfoLevel
@@ -49,67 +50,67 @@ func Init(wrt WriterSyncer, debug bool) {
 	logger = logger.With("uuid", uuid.New().String())
 }
 
-//TODO add godoc
+//Close - flushes buffered logs
 func Close() {
 	baseLogger.Sync()
 }
 
-//TODO add godoc
+//Debug logs the provided arguments at [DebugLevel]
 func Debug(args ...interface{}) {
 	logger.Debug(args...)
 }
 
-//TODO add godoc
+//Info logs the provided arguments at [InfoLevel]
 func Info(args ...interface{}) {
 	logger.Info(args...)
 }
 
-//TODO add godoc
+//Warn logs the provided arguments at [WarnLevel]
 func Warn(args ...interface{}) {
 	logger.Warn(args...)
 }
 
-//TODO add godoc
+//Error logs the provided arguments at [ErrorLevel]
 func Error(args ...interface{}) {
 	logger.Error(args...)
 }
 
-//TODO add godoc
+//Debugf formats the message according to the format specifier and logs it at [DebugLevel]
 func Debugf(template string, args ...interface{}) {
 	logger.Debugf(template, args...)
 }
 
-//TODO add godoc
+//Infof formats the message according to the format specifier and logs it at [InfoLevel]
 func Infof(template string, args ...interface{}) {
 	logger.Infof(template, args...)
 }
 
-//TODO add godoc
+//Warnf formats the message according to the format specifier and logs it at [WarnLevel]
 func Warnf(template string, args ...interface{}) {
 	logger.Warnf(template, args...)
 }
 
-//TODO add godoc
+//Errorf formats the message according to the format specifier and logs it at [ErrorLevel]
 func Errorf(template string, args ...interface{}) {
 	logger.Errorf(template, args...)
 }
 
-//TODO add godoc
+//Debugw logs a message with some additional context. Context is key-value pairs 
 func Debugw(msg string, keysAndValues ...interface{}) {
 	logger.Debugw(msg, keysAndValues...)
 }
 
-//TODO add godoc
+//Infow logs a message with some additional context. Context is key-value pairs 
 func Infow(msg string, keysAndValues ...interface{}) {
 	logger.Infow(msg, keysAndValues...)
 }
 
-//TODO add godoc
+//Warnw logs a message with some additional context. Context is key-value pairs 
 func Warnw(msg string, keysAndValues ...interface{}) {
 	logger.Warnw(msg, keysAndValues...)
 }
 
-//TODO add godoc
+//Errorw logs a message with some additional context. Context is key-value pairs 
 func Errorw(msg string, keysAndValues ...interface{}) {
 	logger.Errorw(msg, keysAndValues...)
 }

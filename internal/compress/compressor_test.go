@@ -86,8 +86,8 @@ func Test_compressor_Write(t *testing.T) {
 			require.NoError(t, err)
 
 			c := &compressor{
-				Writer: gw,
-				Buffer: buf,
+				wrt: gw,
+				buf: buf,
 			}
 
 			got, err := c.Write(tt.args.content)

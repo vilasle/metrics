@@ -7,6 +7,7 @@ import (
 )
 
 type (
+	//CompressorWriter implements compression algorithm Flate, compress data and writes to Buffer
 	CompressorWriter interface {
 		io.Writer
 		Bytes() []byte
@@ -14,12 +15,13 @@ type (
 	}
 
 	compressor struct {
-		*gzip.Writer
-		*bytes.Buffer
+		wrt *gzip.Writer
+		buf *bytes.Buffer
 	}
 )
 
-//TODO add godoc
+// NewCompressor returns new instance of CompressorWriter
+// allowed levels see gzip.NewWriterLevel
 func NewCompressor(level int) CompressorWriter {
 	buf := &bytes.Buffer{}
 	gw, err := gzip.NewWriterLevel(buf, level)
@@ -28,25 +30,25 @@ func NewCompressor(level int) CompressorWriter {
 	}
 
 	return &compressor{
-		Writer: gw,
-		Buffer: buf,
+		wrt: gw,
+		buf: buf,
 	}
 }
 
-//TODO add godoc
+// Write compress data and writes to Buffer
 func (c *compressor) Write(content []byte) (int, error) {
-	n, err := c.Writer.Write(content)
-	c.Writer.Close()
+	n, err := c.wrt.Write(content)
+	c.wrt.Close()
 	return n, err
 }
 
-//TODO add godoc
+// Bytes returns compressed data from buffer
 func (c *compressor) Bytes() []byte {
-	return c.Buffer.Bytes()
+	return c.buf.Bytes()
 }
 
-//TODO add godoc
+// Reset clears buffer from data
 func (c *compressor) Reset() {
-	c.Writer.Reset(c.Buffer)
-	c.Buffer.Reset()
+	c.wrt.Reset(c.buf)
+	c.buf.Reset()
 }

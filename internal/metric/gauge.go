@@ -12,22 +12,22 @@ type gauge struct {
 	value float64
 }
 
-//TODO add godoc
+//Value returns name of metric
 func (c gauge) Name() string {
 	return c.name
 }
 
-//TODO add godoc
+//Value returns value as string
 func (c gauge) Value() string {
 	return strconv.FormatFloat(c.value, 'f', -1, 64)
 }
 
-//TODO add godoc
+//Type returns type of metric
 func (c gauge) Type() string {
 	return TypeGauge
 }
 
-//TODO add godoc
+//AddValue adds value to metric, accept int64 or float64
 func (c *gauge) AddValue(val any) error {
 	if v, ok := val.(float64); ok {
 		c.value += v
@@ -37,7 +37,7 @@ func (c *gauge) AddValue(val any) error {
 	return nil
 }
 
-//TODO add godoc
+//SetValue sets value to metric, accept float64
 func (c *gauge) SetValue(val any) error {
 	if v, ok := val.(float64); ok {
 		c.value = v
@@ -47,7 +47,7 @@ func (c *gauge) SetValue(val any) error {
 	return nil
 }
 
-//TODO add godoc
+//MarshalJSON returns json representation of metric
 func (c gauge) MarshalJSON() ([]byte, error) {
 	metric := struct {
 		ID    string  `json:"id"`
@@ -61,17 +61,18 @@ func (c gauge) MarshalJSON() ([]byte, error) {
 	return json.Marshal(metric)
 }
 
-//TODO add godoc
+//String returns string representation of metric
+//representation string likes {type: metric_type; name: metric_name; value: metric_value}
 func (c gauge) String() string {
 	return fmt.Sprintf("{type: %s; name: %s; value: %f}", c.Type(), c.name, c.value)
 }
 
-//TODO add godoc
+//Float64 returns float64 representation of metric
 func (c gauge) Float64() float64 {
 	return c.value
 }
 
-//TODO add godoc
+//Int64 returns int64 representation of metric
 func (c gauge) Int64() int64 {
 	return int64(c.value)
 }

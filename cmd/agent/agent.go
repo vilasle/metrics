@@ -22,8 +22,8 @@ type delay struct {
 	report  time.Duration
 	collect time.Duration
 }
-//TODO add godoc
-func NewCollectorAgent(collector agent.Collector, sender agent.Sender, delaySetting delay) collectorAgent {
+
+func newCollectorAgent(collector agent.Collector, sender agent.Sender, delaySetting delay) collectorAgent {
 	return collectorAgent{
 		Collector: collector,
 		Sender:    sender,
@@ -38,28 +38,25 @@ func NewCollectorAgent(collector agent.Collector, sender agent.Sender, delaySett
 	}
 }
 
-//TODO add godoc
-func (a collectorAgent) Run(ctx context.Context) {
+func (a collectorAgent) run(ctx context.Context) {
 	newCtx, cancel := context.WithCancel(ctx)
 
-	go a.CollectWithContext(newCtx)
-	go a.ReportWithContext(newCtx)
+	go a.collectWithContext(newCtx)
+	go a.reportWithContext(newCtx)
 
 	<-ctx.Done()
 	logger.Debug("got cancel from main")
 	cancel()
 }
 
-//TODO add godoc
-func (a collectorAgent) Collect() {
+func (a collectorAgent) collect() {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 
 	a.Collector.Collect()
 }
 
-//TODO add godoc
-func (a collectorAgent) CollectWithContext(ctx context.Context) {
+func (a collectorAgent) collectWithContext(ctx context.Context) {
 	t := time.NewTicker(a.collectDelay)
 	defer t.Stop()
 	for {
@@ -73,17 +70,15 @@ func (a collectorAgent) CollectWithContext(ctx context.Context) {
 	}
 }
 
-//TODO add godoc
-func (a collectorAgent) Report() {
-	if err := a.report(); err != nil {
+func (a collectorAgent) report() {
+	if err := a.sendReport(); err != nil {
 		logger.Error("failed to report metrics", "err", err)
 	} else {
 		a.resetPoolCounter()
 	}
 }
 
-//TODO add godoc
-func (a collectorAgent) ReportWithContext(ctx context.Context) {
+func (a collectorAgent) reportWithContext(ctx context.Context) {
 	t := time.NewTicker(a.reportDelay)
 	defer t.Stop()
 	for {
@@ -99,7 +94,7 @@ func (a collectorAgent) ReportWithContext(ctx context.Context) {
 	}
 }
 
-func (a collectorAgent) report() (err error) {
+func (a collectorAgent) sendReport() (err error) {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 	for _, d := range a.repeat {

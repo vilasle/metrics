@@ -151,10 +151,10 @@ func main() {
 		os.Exit(2)
 	}
 
-	agent := NewCollectorAgent(c, sender, delay{collect: pollInterval, report: reportInterval})
+	agent := newCollectorAgent(c, sender, delay{collect: pollInterval, report: reportInterval})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go agent.Run(ctx)
+	go agent.run(ctx)
 
 	<-sigint
 	logger.Info("stopping agent")
