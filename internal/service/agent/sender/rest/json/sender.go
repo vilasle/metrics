@@ -16,7 +16,8 @@ import (
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
 
-//TODO add godoc
+//HTTPJsonSender struct for preparing http request, transform metric to json string and set it as body  
+//can be add using hash sum, compressing.  
 type HTTPJsonSender struct {
 	*url.URL
 	httpClient
@@ -26,7 +27,7 @@ type HTTPJsonSender struct {
 	rateLimit  int
 }
 
-//TODO add godoc
+//NewHTTPJsonSender creates new HTTPJsonSender or returns error if addr is not valid
 func NewHTTPJsonSender(addr string, hashSumKey string, rateLimit int) (HTTPJsonSender, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
@@ -46,7 +47,7 @@ func NewHTTPJsonSender(addr string, hashSumKey string, rateLimit int) (HTTPJsonS
 	return s, nil
 }
 
-//TODO add godoc
+//Send prepares request body and send metric to server
 func (s HTTPJsonSender) Send(value metric.Metric) error {
 	u := *s.URL
 	content, err := prepareBodyForReport(value)
@@ -92,7 +93,7 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 	return err
 }
 
-//TODO add godoc
+//SendWithLimit send metrics with limit for quantity of requests per second
 func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 	limit := s.rateLimit
 	errs := make([]error, 0)
@@ -114,7 +115,7 @@ func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 	return errors.Join(errs...)
 }
 
-//TODO add godoc
+//Send prepares request body as json array and send metric to server
 func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	u := *s.URL
 	content, err := prepareBatchBodyForReport(values...)

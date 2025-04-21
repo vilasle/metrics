@@ -11,13 +11,13 @@ import (
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
 
-//TODO add godoc
+//HTTPTextSender struct for preparing http request. Metric passes as url of specific format
 type HTTPTextSender struct {
 	*url.URL
 	client http.Client
 }
 
-//TODO add godoc
+//NewHTTPTextSender creates new HTTPTextSender or returns error if addr is not valid
 func NewHTTPTextSender(addr string) (HTTPTextSender, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
@@ -26,7 +26,7 @@ func NewHTTPTextSender(addr string) (HTTPTextSender, error) {
 	return HTTPTextSender{URL: u, client: http.Client{Timeout: time.Second * 5}}, nil
 }
 
-//TODO add godoc
+//Send prepares request and send metric to server
 func (s HTTPTextSender) Send(value metric.Metric) error {
 	u := *s.URL
 	addr := u.JoinPath(value.Type(), value.Name(), value.Value()).String()
