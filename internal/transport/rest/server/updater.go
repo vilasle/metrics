@@ -41,51 +41,51 @@ func handleUpdateAsTextPlain(svc service.MetricService, r *http.Request) Respons
 
 	if m, err := metric.ParseMetric(raw.Name, raw.Value, raw.Type); err == nil {
 		err := svc.Save(r.Context(), m)
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	} else {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 }
 
 func handleUpdateAsTextJSON(svc service.MetricService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
-		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
+		return newTextResponse(emptyBody(), ErrEmptyRequestBody)
 	}
 	content, err := io.ReadAll(r.Body)
 	if err != nil {
-		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
 	ok, err := checkHashSum(&content, r)
 	if err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 
 	if !ok {
-		return NewTextResponse(emptyBody(), ErrInvalidHashSum)
+		return newTextResponse(emptyBody(), ErrInvalidHashSum)
 	}
 
 	decompressedContent, err := unpackContent(content, r.Header.Get("Content-Encoding") == "gzip")
 	if err != nil {
-		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
 	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
 
 	m, err := metric.FromJSON(decompressedContent)
 	if err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 
 	if err = svc.Save(r.Context(), m); err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 
 	logger.Debugw("updated metric", "metric", m)
 
 	updContent, err := json.Marshal(m)
-	return NewJSONResponse(updContent, err)
+	return newJSONResponse(updContent, err)
 }
 
 func unpackContent(content []byte, isCompressed bool) ([]byte, error) {
@@ -112,48 +112,48 @@ func updateMetrics(svc service.MetricService, r *http.Request) Response {
 	case "application/json":
 		return handleUpdateMetricsAsBatch(svc, r)
 	default:
-		return NewTextResponse(emptyBody(), ErrUnknownContentType)
+		return newTextResponse(emptyBody(), ErrUnknownContentType)
 	}
 }
 
 func handleUpdateMetricsAsBatch(svc service.MetricService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
-		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
+		return newTextResponse(emptyBody(), ErrEmptyRequestBody)
 	}
 	content, err := io.ReadAll(r.Body)
 	if err != nil {
-		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
 	ok, err := checkHashSum(&content, r)
 	if err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 
 	if !ok {
-		return NewTextResponse(emptyBody(), ErrInvalidHashSum)
+		return newTextResponse(emptyBody(), ErrInvalidHashSum)
 	}
 
 	decompressedContent, err := unpackContent(content, r.Header.Get("Content-Encoding") == "gzip")
 	if err != nil {
-		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
 	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
 
 	ms, err := metric.FromJSONArray(decompressedContent)
 	if err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 
 	if err = svc.Save(r.Context(), ms...); err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 
 	logger.Debugw("updated metrics", "metric", ms)
 
-	return NewTextResponse(emptyBody(), err)
+	return newTextResponse(emptyBody(), err)
 }
 
 func checkHashSum(pC *[]byte, req *http.Request) (bool, error) {

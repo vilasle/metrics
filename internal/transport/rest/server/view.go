@@ -17,16 +17,16 @@ import (
 func showAllMetrics(svc service.MetricService, r *http.Request) Response {
 	//handler catch all unregistered endpoints and block they
 	if r.RequestURI != "/" {
-		return NewTextResponse(emptyBody(), ErrForbiddenResource)
+		return newTextResponse(emptyBody(), ErrForbiddenResource)
 	}
 
 	metrics, err := svc.All(r.Context())
 	if err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 
 	content, err := generateViewOfAllMetrics(metrics)
-	return NewHTMLResponse(content, err)
+	return newHTMLResponse(content, err)
 }
 
 func generateViewOfAllMetrics(metrics []metric.Metric) ([]byte, error) {
@@ -78,47 +78,47 @@ func handleDisplayMetricAsTextPlain(svc service.MetricService, r *http.Request) 
 	raw := getRawDataFromContext(r.Context())
 	logger.Debugw("raw data from url", "url", r.URL.String(), "raw", raw)
 	if notFilled(raw.Name, raw.Type) {
-		return NewTextResponse(emptyBody(), ErrEmptyRequiredFields)
+		return newTextResponse(emptyBody(), ErrEmptyRequiredFields)
 	}
 
 	metric, err := svc.Get(r.Context(), raw.Type, raw.Name)
 	if err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
-	return NewTextResponse([]byte(metric.Value()), nil)
+	return newTextResponse([]byte(metric.Value()), nil)
 }
 
 func handleDisplayMetricAsTextJSON(svc service.MetricService, r *http.Request) Response {
 	defer r.Body.Close()
 	if r.Body == http.NoBody {
-		return NewTextResponse(emptyBody(), ErrEmptyRequestBody)
+		return newTextResponse(emptyBody(), ErrEmptyRequestBody)
 	}
 	content, err := io.ReadAll(r.Body)
 
 	if err != nil {
-		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
 	decompressedContent, err := unpackContent(content, r.Header.Get("Content-Encoding") == "gzip")
 	if err != nil {
-		return NewTextResponse(emptyBody(), ErrReadingRequestBody)
+		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
 	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
 
 	m, err := metric.FromJSON(decompressedContent)
 	if err != nil && !errors.Is(err, metric.ErrEmptyValue) {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 
 	metric, err := svc.Get(r.Context(), m.Type(), m.Name())
 	if err != nil {
-		return NewTextResponse(emptyBody(), err)
+		return newTextResponse(emptyBody(), err)
 	}
 	logger.Debugw("display metric", "metric", metric)
 
 	metricContent, err := json.Marshal(metric)
-	return NewJSONResponse(metricContent, err)
+	return newJSONResponse(metricContent, err)
 }
 
 func allMetricsTemplate() string {

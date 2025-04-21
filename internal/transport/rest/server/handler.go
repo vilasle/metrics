@@ -11,7 +11,7 @@ type HandlerWithResponse func(w http.ResponseWriter, r *http.Request) Response
 //TODO add godoc
 func (fn HandlerWithResponse) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	response := fn(w, r)
-	response.Write(w)
+	response.write(w)
 }
 
 //TODO add godoc
@@ -45,6 +45,6 @@ func DisplayMetric(svc service.MetricService) HandlerWithResponse {
 //TODO add godoc
 func Ping(svc service.MetricService) HandlerWithResponse {
 	return func(w http.ResponseWriter, r *http.Request) Response {
-		return NewTextResponse(emptyBody(), svc.Ping(r.Context()))
+		return newTextResponse(emptyBody(), svc.Ping(r.Context()))
 	}
 }

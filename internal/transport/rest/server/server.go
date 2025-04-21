@@ -10,14 +10,16 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-//TODO add godoc
+// HTTPServer is the structure that holds and wraps the http server
 type HTTPServer struct {
 	srv     *http.Server
 	mux     *chi.Mux
 	running atomic.Bool
 }
 
-//TODO add godoc
+// NewHTTPServer create new instance of HTTPServer
+// addr is the address to listen on
+// middlewareOptions are the middleware to use
 func NewHTTPServer(addr string, middlewareOptions ...func(http.Handler) http.Handler) *HTTPServer {
 	mux := chi.NewRouter()
 
@@ -43,7 +45,7 @@ func NewHTTPServer(addr string, middlewareOptions ...func(http.Handler) http.Han
 	return srv
 }
 
-//TODO add godoc
+// Register - register new handlers
 func (s *HTTPServer) Register(path string, handler http.Handler, methods ...string) {
 	if len(methods) == 0 {
 		s.mux.Handle(path, handler)
@@ -55,7 +57,7 @@ func (s *HTTPServer) Register(path string, handler http.Handler, methods ...stri
 	}
 }
 
-//TODO add godoc
+// Start - start the server
 func (s *HTTPServer) Start() error {
 	s.srv.Handler = s.mux
 	s.running.Swap(true)
@@ -71,13 +73,13 @@ func (s *HTTPServer) Start() error {
 	return err
 }
 
-//TODO add godoc
+// IsRunning - check if the server is running
 func (s *HTTPServer) IsRunning() bool {
 	v := s.running.Load()
 	return v
 }
 
-//TODO add godoc
+// Stop - tries to stop the server gracefully
 func (s *HTTPServer) Stop() error {
 	if err := s.srv.Shutdown(context.Background()); err != nil {
 		s.running.Swap(false)
@@ -86,7 +88,7 @@ func (s *HTTPServer) Stop() error {
 	return nil
 }
 
-//TODO add godoc
+// ForceStop - tries to stop the server forcefully
 func (s *HTTPServer) ForceStop() error {
 	return s.srv.Close()
 }

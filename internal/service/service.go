@@ -6,7 +6,7 @@ import (
 	"github.com/vilasle/metrics/internal/metric"
 )
 
-//TODO add godoc
+// MetricService is the interface that group methods for work with metrics
 type MetricService interface {
 	Save(context.Context, ...metric.Metric) error
 	Get(ctx context.Context, metricType, name string) (metric.Metric, error)
@@ -16,14 +16,14 @@ type MetricService interface {
 	Close()
 }
 
-//TODO add godoc
+// Collector is the interface that group methods for collection of metrics
 type Collector interface {
 	Collect()
 	AllMetrics() []metric.Metric
 	ResetCounter(string)
 }
 
-//TODO add godoc
+// Sender is the interface that group methods for sending of metrics to server
 type Sender interface {
 	Send(metric.Metric) error
 	SendBatch(...metric.Metric) error

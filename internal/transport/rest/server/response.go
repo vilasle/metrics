@@ -8,9 +8,9 @@ import (
 	"github.com/vilasle/metrics/internal/service"
 )
 
-//TODO add godoc
+//Response is the interface for wrapping http.ResponseWriter and post-processing before write response
 type Response interface {
-	Write(w http.ResponseWriter)
+	write(w http.ResponseWriter)
 }
 
 type simpleResponse struct {
@@ -18,59 +18,49 @@ type simpleResponse struct {
 	err     error
 }
 
-//TODO add godoc
-func (r simpleResponse) Write(w http.ResponseWriter) {
+func (r simpleResponse) write(w http.ResponseWriter) {
 	w.WriteHeader(getStatusCode(r.err))
 
 	w.Write(r.content)
 }
 
-//TODO add godoc
-type JSONResponse struct {
+type jsonResponse struct {
 	sp simpleResponse
 }
 
-//TODO add godoc
-func NewJSONResponse(content []byte, err error) Response {
-	return JSONResponse{sp: simpleResponse{content: content, err: err}}
+func newJSONResponse(content []byte, err error) Response {
+	return jsonResponse{sp: simpleResponse{content: content, err: err}}
 }
 
-//TODO add godoc
-func (r JSONResponse) Write(w http.ResponseWriter) {
+func (r jsonResponse) write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "application/json")
-	r.sp.Write(w)
+	r.sp.write(w)
 }
 
-//TODO add godoc
-type TextResponse struct {
+type textResponse struct {
 	sp simpleResponse
 }
 
-//TODO add godoc
-func NewTextResponse(content []byte, err error) Response {
-	return TextResponse{sp: simpleResponse{content: content, err: err}}
+func newTextResponse(content []byte, err error) Response {
+	return textResponse{sp: simpleResponse{content: content, err: err}}
 }
 
-//TODO add godoc
-func (r TextResponse) Write(w http.ResponseWriter) {
+func (r textResponse) write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "text/plain")
-	r.sp.Write(w)
+	r.sp.write(w)
 }
 
-//TODO add godoc
-type HTMLResponse struct {
+type htmlResponse struct {
 	sp simpleResponse
 }
 
-//TODO add godoc
-func NewHTMLResponse(content []byte, err error) Response {
-	return HTMLResponse{sp: simpleResponse{content: content, err: err}}
+func newHTMLResponse(content []byte, err error) Response {
+	return htmlResponse{sp: simpleResponse{content: content, err: err}}
 }
 
-//TODO add godoc
-func (r HTMLResponse) Write(w http.ResponseWriter) {
+func (r htmlResponse) write(w http.ResponseWriter) {
 	w.Header().Add("Content-Type", "text/html")
-	r.sp.Write(w)
+	r.sp.write(w)
 }
 
 func getStatusCode(err error) int {
