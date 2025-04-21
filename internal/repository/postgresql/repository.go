@@ -10,12 +10,17 @@ import (
 	"github.com/vilasle/metrics/internal/repository"
 )
 
-//TODO add godoc
+var (
+	_ repository.MetricRepository = (*PostgresqlMetricRepository)(nil)
+)
+
+//PostgresqlMetricRepository is the structure that implements the repository.MetricRepository interface 
+//and stores the metrics in a Postgresql database.
 type PostgresqlMetricRepository struct {
 	db repeater
 }
 
-//TODO add godoc
+//NewRepository creates instance of PostgresqlMetricRepository
 func NewRepository(db *sql.DB) (*PostgresqlMetricRepository, error) {
 	r := &PostgresqlMetricRepository{
 		db: repeater{
@@ -36,7 +41,7 @@ func NewRepository(db *sql.DB) (*PostgresqlMetricRepository, error) {
 	return r, err
 }
 
-//TODO add godoc
+//Save saves the metrics in the repository or returns an error if the set of metrics is empty or the metric type is unknown.
 func (r *PostgresqlMetricRepository) Save(ctx context.Context, entity ...metric.Metric) error {
 	switch len(entity) {
 	case 0:
@@ -49,17 +54,17 @@ func (r *PostgresqlMetricRepository) Save(ctx context.Context, entity ...metric.
 	}
 }
 
-//TODO add godoc
+//Get gets the metrics from the repository or returns an error if the metric type is unknown.
 func (r *PostgresqlMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
 	return r.getGetter(metricType).get(ctx, filterName...)
 }
 
-//TODO add godoc
+//Ping checks the connection with the repository
 func (r *PostgresqlMetricRepository) Ping(ctx context.Context) error {
 	return r.db.ping(ctx)
 }
 
-//TODO add godoc
+//Close closes the connection with the repository
 func (r *PostgresqlMetricRepository) Close() {
 	r.db.close()
 }

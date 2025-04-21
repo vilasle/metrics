@@ -22,11 +22,16 @@ const (
 
 type initOpt func(context.Context, *FileDumper) error
 
-//TODO add godoc
+//Config is setting for FileDumper
 type Config struct {
+	//Timeout define FileDumper mode, 
+	//if it's greater than 0, then saving metrics to file will execute by a timer, else immediately
 	Timeout time.Duration
+	//Restore define behavior of FileDumper, if it's true, then FileDumper will restore metrics from file
 	Restore bool
+	//Storage is metric's storage
 	Storage repository.MetricRepository
+	//SerialWriter is writer for dumped metrics
 	SerialWriter
 }
 
@@ -50,7 +55,21 @@ func (d dumpedMetric) dumpedContent() []byte {
 	return []byte(c)
 }
 
-//TODO add godoc
+// FileDumper if wrapper front MetricRepository and stores metrics in file immediately or by timer
+// On during work on sync mode we will add only new lines to file
+// example:
+// 	0;gauge1;123
+// 	0;gauge1;124
+// 	0;gauge1;126
+// 	1;counter1;126
+// 	1;counter1;126
+// 	1;counter1;126
+// 
+// For counter such situation is ok, for gauge not is.
+// 
+// In general if the last launch worked on sync mode we would have all history transactions.
+// When we restore repository from file we will have unique values for gauge and historical data for counter
+// and after dumping got file which will match real situation on repository
 type FileDumper struct {
 	fs       SerialWriter
 	storage  repository.MetricRepository
@@ -58,24 +77,8 @@ type FileDumper struct {
 	srvMx    *sync.Mutex
 }
 
-//TODO add godoc
-/*
-On during work on sync mode we will add only new lines to file
-example:
 
-	0;gauge1;123
-	0;gauge1;124
-	0;gauge1;126
-	1;counter1;126
-	1;counter1;126
-	1;counter1;126
-
-For counter such situation is ok, for gauge not is.
-
-In general if the last launch worked on sync mode we would have all history transactions.
-When we restore repository from file we will have unique values for gauge and historical data for counter
-and after dumping got file which will match real situation on repository
-*/
+// NewFileDumper returns new instance of FileDumper
 func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	d := &FileDumper{
 		storage:  config.Storage,
@@ -93,7 +96,7 @@ func NewFileDumper(ctx context.Context, config Config) (*FileDumper, error) {
 	return d, nil
 }
 
-//TODO add godoc
+// Save - saves metrics to storage and if FileDumper works in syncMode, will add new line after saving metric to storage
 func (d *FileDumper) Save(ctx context.Context, entity ...metric.Metric) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
@@ -115,7 +118,7 @@ func (d *FileDumper) Save(ctx context.Context, entity ...metric.Metric) error {
 	return errors.Join(errs...)
 }
 
-//TODO add godoc
+// DumpAll - dumps all metrics to storage
 func (d *FileDumper) DumpAll(ctx context.Context) error {
 	d.srvMx.Lock()
 	defer d.srvMx.Unlock()
@@ -140,17 +143,17 @@ func (d *FileDumper) DumpAll(ctx context.Context) error {
 	return err
 }
 
-//TODO add godoc
+// Get - gets metrics from storage. Method is necessary for implementation of MetricRepository's methods 
 func (d *FileDumper) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
 	return d.storage.Get(ctx, metricType, filterName...)
 }
 
-//TODO add godoc
+// Get - checks connection with storage. Method is necessary for implementation of MetricRepository's methods 
 func (d *FileDumper) Ping(ctx context.Context) error {
 	return d.storage.Ping(ctx)
 }
 
-//TODO add godoc
+// Close - closes connection with storage, method is necessary for implementation of MetricRepository's methods 
 func (d *FileDumper) Close() {
 	d.storage.Close()
 }
