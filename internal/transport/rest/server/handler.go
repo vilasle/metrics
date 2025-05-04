@@ -36,8 +36,8 @@ func UpdateMetric(svc service.MetricService) HandlerWithResponse {
 // Body body must be in format :
 // [
 //
-//		{"type": "gauge", "id" : "metric_id", "value": "metric_value"},
-//	 {"type": "counter", "id" : "metric_id", "delta": metric_value}
+//	{"type": "gauge", "id" : "metric_id", "value": "metric_value"},
+//	{"type": "counter", "id" : "metric_id", "delta": metric_value}
 //
 // ]
 func BatchUpdate(svc service.MetricService) HandlerWithResponse {
@@ -62,8 +62,8 @@ func DisplayAllMetrics(svc service.MetricService) HandlerWithResponse {
 // if request Content-Type is application/json body must be in format : {"type": "gauge", "id" : "metric_id"}
 // Response body will content json string with value of metric like this:
 //
-//		{"type": "gauge", "id" : "metric_id", "value": "metric_value"} - for gauge metric,
-//	 {"type": "counter", "id" : "metric_id", "delta": metric_value} - for counter metric
+//	{"type": "gauge", "id" : "metric_id", "value": "metric_value"} - for gauge metric,
+//	{"type": "counter", "id" : "metric_id", "delta": metric_value} - for counter metric
 func DisplayMetric(svc service.MetricService) HandlerWithResponse {
 	return func(w http.ResponseWriter, r *http.Request) Response {
 		return showSpecificMetric(svc, r)

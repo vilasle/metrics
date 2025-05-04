@@ -16,8 +16,8 @@ import (
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
 
-//HTTPJsonSender struct for preparing http request, transform metric to json string and set it as body  
-//can be add using hash sum, compressing.  
+// HTTPJsonSender struct for preparing http request, transform metric to json string and set it as body  
+// can be add using hash sum, compressing.  
 type HTTPJsonSender struct {
 	*url.URL
 	httpClient
@@ -27,7 +27,7 @@ type HTTPJsonSender struct {
 	rateLimit  int
 }
 
-//NewHTTPJsonSender creates new HTTPJsonSender or returns error if addr is not valid
+// NewHTTPJsonSender creates new HTTPJsonSender or returns error if addr is not valid
 func NewHTTPJsonSender(addr string, hashSumKey string, rateLimit int) (HTTPJsonSender, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
@@ -47,7 +47,7 @@ func NewHTTPJsonSender(addr string, hashSumKey string, rateLimit int) (HTTPJsonS
 	return s, nil
 }
 
-//Send prepares request body and send metric to server
+// Send prepares request body and send metric to server
 func (s HTTPJsonSender) Send(value metric.Metric) error {
 	u := *s.URL
 	content, err := prepareBodyForReport(value)
@@ -64,8 +64,8 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 	req.Header.Set("Accept-Encoding", "gzip")
 
 	if err := s.addHashSumHeader(req, &content); err != nil {
-		//if could not create hash-sum, but it does not break main logic
-		//that's why we continue and allow to the server decide take this report or no
+		// if could not create hash-sum, but it does not break main logic
+		// that's why we continue and allow to the server decide take this report or no
 		logger.Error("can not create hash-sum", "err", err)
 	}
 
@@ -93,7 +93,7 @@ func (s HTTPJsonSender) Send(value metric.Metric) error {
 	return err
 }
 
-//SendWithLimit send metrics with limit for quantity of requests per second
+// SendWithLimit send metrics with limit for quantity of requests per second
 func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 	limit := s.rateLimit
 	errs := make([]error, 0)
@@ -115,7 +115,7 @@ func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 	return errors.Join(errs...)
 }
 
-//Send prepares request body as json array and send metric to server
+// Send prepares request body as json array and send metric to server
 func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	u := *s.URL
 	content, err := prepareBatchBodyForReport(values...)
@@ -132,8 +132,8 @@ func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	req.Header.Set("Accept-Encoding", "gzip")
 
 	if err := s.addHashSumHeader(req, &content); err != nil {
-		//if could not create hash-sum, but it does not break main logic
-		//that's why we continue and allow to the server decide take this report or no
+		// if could not create hash-sum, but it does not break main logic
+		// that's why we continue and allow to the server decide take this report or no
 		logger.Error("can not create hash-sum", "err", err)
 	}
 

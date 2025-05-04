@@ -55,7 +55,7 @@ func Test_FileStream_NewFileStream(t *testing.T) {
 func Test_FileStream_Write(t *testing.T) {
 	file := "test.txt"
 	fs, err := NewFileStream(file)
-	//check create
+	// check create
 	require.NoError(t, err)
 	require.NotNil(t, fs)
 
@@ -78,7 +78,7 @@ func Test_FileStream_Write(t *testing.T) {
 func Test_FileStream_Rewrite(t *testing.T) {
 	file := "test.txt"
 	fs, err := NewFileStream(file)
-	//check create
+	// check create
 	require.NoError(t, err)
 	require.NotNil(t, fs)
 
@@ -158,7 +158,7 @@ func Test_FileStream_Clear(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-				//file will not be empty
+				// file will not be empty
 				_, err = fd.Write([]byte("test"))
 				if err == nil {
 					err = fd.Sync()
@@ -650,11 +650,11 @@ func Test_withClear(t *testing.T) {
 }
 
 func Test_FileDumper_restore(t *testing.T) {
-	//fs scan all setup
+	// fs scan all setup
 	setupFs := func(mock *MockSerialWriter, result []string, err error) {
 		mock.EXPECT().ScanAll().Return(result, err)
 	}
-	//storage save setup
+	// storage save setup
 	setupStorage := func(mock *MockMetricRepository, ctx context.Context, metrics []metric.Metric, err error) {
 		mock.EXPECT().Save(ctx, metrics).Return(err)
 	}

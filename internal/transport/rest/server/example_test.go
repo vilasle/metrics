@@ -16,16 +16,16 @@ import (
 )
 
 func ExampleUpdateMetric() {
-	//test service
+	// test service
 	svc := server.NewMetricService(memory.NewMetricRepository())
 	handler := UpdateMetric(svc)
 
-	//Update gauge metric as text/plain
+	// Update gauge metric as text/plain
 	{
-		//metric data
+		// metric data
 		id, mtype, value := "test", "gauge", "143.213"
 
-		//url have to be like /update/{type}/{name}/{value}
+		// url have to be like /update/{type}/{name}/{value}
 		reqAddr, err := url.JoinPath("/update", mtype, id, value)
 		if err != nil {
 			fmt.Printf("can not join url: %v\n", err)
@@ -50,12 +50,12 @@ func ExampleUpdateMetric() {
 		fmt.Printf("gauge text/plain code: %d\n", wrt.Code)
 	}
 
-	//Update counter metric as text/plain
+	// Update counter metric as text/plain
 	{
-		//metric data
+		// metric data
 		id, mtype, value := "test", "counter", "213"
 
-		//url have to be like /update/{type}/{name}/{value}
+		// url have to be like /update/{type}/{name}/{value}
 		reqAddr, err := url.JoinPath("/update", mtype, id, value)
 		if err != nil {
 			fmt.Printf("can not join url: %v\n", err)
@@ -80,9 +80,9 @@ func ExampleUpdateMetric() {
 		fmt.Printf("counter text/plain code: %d\n", wrt.Code)
 	}
 
-	//Update gauge metric as application/json
+	// Update gauge metric as application/json
 	{
-		//metric data
+		// metric data
 		rd := strings.NewReader(`{"id":"test","type":"gauge","value":143.213}`)
 		reqAddr := "/update"
 
@@ -107,9 +107,9 @@ func ExampleUpdateMetric() {
 		fmt.Printf("gauge application/json body: %s\n", string(responseBody))
 	}
 
-	//Update counter metric as application/json
+	// Update counter metric as application/json
 	{
-		//metric data
+		// metric data
 		rd := strings.NewReader(`{"id":"test","type":"counter","delta":213}`)
 
 		reqAddr := "/update"
@@ -135,21 +135,21 @@ func ExampleUpdateMetric() {
 		fmt.Printf("counter application/json body: %s\n", string(responseBody))
 	}
 
-	//Output:
-	//gauge text/plain code: 200
-	//counter text/plain code: 200
-	//gauge application/json code: 200
-	//gauge application/json body: {"id":"test","type":"gauge","value":143.213}
-	//counter application/json code: 200
-	//counter application/json body: {"id":"test","type":"counter","delta":213}
+	// Output:
+	// gauge text/plain code: 200
+	// counter text/plain code: 200
+	// gauge application/json code: 200
+	// gauge application/json body: {"id":"test","type":"gauge","value":143.213}
+	// counter application/json code: 200
+	// counter application/json body: {"id":"test","type":"counter","delta":213}
 }
 
 func ExampleBatchUpdate() {
-	//test service
+	// test service
 	svc := server.NewMetricService(memory.NewMetricRepository())
 	handler := BatchUpdate(svc)
 
-	// body
+	//  body
 	rd := strings.NewReader(`[{"id":"test","type":"counter","delta":213},{"id":"test","type":"gauge","value":143.213}]`)
 	reqAddr := "/updates/"
 
@@ -164,8 +164,8 @@ func ExampleBatchUpdate() {
 	}
 	fmt.Printf("batch update code: %d\n", wrt.Code)
 
-	//Output:
-	//batch update code: 200
+	// Output:
+	// batch update code: 200
 }
 
 func ExampleDisplayAllMetrics() {
@@ -193,8 +193,8 @@ func ExampleDisplayAllMetrics() {
 	}
 	fmt.Printf("display all metrics code: %d\n", wrt.Code)
 
-	//Output:
-	//display all metrics code: 200
+	// Output:
+	// display all metrics code: 200
 }
 
 func ExampleDisplayMetric() {
@@ -209,12 +209,12 @@ func ExampleDisplayMetric() {
 
 	handler := DisplayMetric(svc)
 
-	//display gauge metric text/plain
+	// display gauge metric text/plain
 	{
-		//metric data
+		// metric data
 		id, mtype := "gauge1", "gauge"
 
-		//url have to be like /update/{type}/{name}
+		// url have to be like /update/{type}/{name}
 		reqAddr, err := url.JoinPath("/value", mtype, id)
 		if err != nil {
 			fmt.Printf("can not join url: %v\n", err)
@@ -243,12 +243,12 @@ func ExampleDisplayMetric() {
 		fmt.Printf("display gauge text/plain body: %s\n", string(body))
 	}
 
-	//display counter metric text/plain
+	// display counter metric text/plain
 	{
-		//metric data
+		// metric data
 		id, mtype := "counter1", "counter"
 
-		//url have to be like /update/{type}/{name}
+		// url have to be like /update/{type}/{name}
 		reqAddr, err := url.JoinPath("/value", mtype, id)
 		if err != nil {
 			fmt.Printf("can not join url: %v\n", err)
@@ -277,13 +277,13 @@ func ExampleDisplayMetric() {
 		fmt.Printf("display counter text/plain body: %s\n", string(body))
 	}
 
-	//display gauge metric application/json
+	// display gauge metric application/json
 	{
 		
-		//url have to be like /update/{type}/{name}
+		// url have to be like /update/{type}/{name}
 		reqAddr := "/value"
 
-		//metric data
+		// metric data
 		rd := strings.NewReader(`{"id":"gauge1","type":"gauge"}`)
 
 		req := httptest.NewRequest(http.MethodPost, reqAddr, rd)
@@ -304,12 +304,12 @@ func ExampleDisplayMetric() {
 		fmt.Printf("display gauge application/json code: %d\n", wrt.Code)
 		fmt.Printf("display gauge application/json body: %s\n", string(body))
 	}
-	//display counter metric application/json
+	// display counter metric application/json
 	{
-		//url have to be like /update/{type}/{name}
+		// url have to be like /update/{type}/{name}
 		reqAddr := "/value"
 
-		//metric data
+		// metric data
 		rd := strings.NewReader(`{"id":"counter1","type":"counter"}`)
 
 		req := httptest.NewRequest(http.MethodPost, reqAddr, rd)
@@ -330,15 +330,15 @@ func ExampleDisplayMetric() {
 		fmt.Printf("display counter application/json code: %d\n", wrt.Code)
 		fmt.Printf("display counter application/json body: %s\n", string(body))
 	}
-	//Output:
-	//display gauge text/plain code: 200
-	//display gauge text/plain body: 123.000123
-	//display counter text/plain code: 200
-	//display counter text/plain body: 123
-	//display gauge application/json code: 200
-	//display gauge application/json body: {"id":"gauge1","type":"gauge","value":123.000123}
-	//display counter application/json code: 200
-	//display counter application/json body: {"id":"counter1","type":"counter","delta":123}
+	// Output:
+	// display gauge text/plain code: 200
+	// display gauge text/plain body: 123.000123
+	// display counter text/plain code: 200
+	// display counter text/plain body: 123
+	// display gauge application/json code: 200
+	// display gauge application/json body: {"id":"gauge1","type":"gauge","value":123.000123}
+	// display counter application/json code: 200
+	// display counter application/json body: {"id":"counter1","type":"counter","delta":123}
 }
 
 func ExamplePing() {

@@ -11,17 +11,17 @@ import (
 	"github.com/vilasle/metrics/internal/service"
 )
 
-//MetricService way for work with metrics. Connects storage with handlers
+// MetricService way for work with metrics. Connects storage with handlers
 type MetricService struct {
 	storage repository.MetricRepository
 }
 
-//NewMetricService returns new instance of MetricService
+// NewMetricService returns new instance of MetricService
 func NewMetricService(storage repository.MetricRepository) *MetricService {
 	return &MetricService{storage: storage}
 }
 
-//Save saves metrics to storage
+// Save saves metrics to storage
 func (s MetricService) Save(ctx context.Context, entity ...metric.Metric) error {
 	if err := s.storage.Save(ctx, entity...); err != nil {
 		return errors.Join(service.ErrStorage, err)
@@ -29,9 +29,9 @@ func (s MetricService) Save(ctx context.Context, entity ...metric.Metric) error 
 	return nil
 }
 
-//Get returns metric by type and name
-//if metricType is gauge, returns last metric
-//if metricType is counter, returns summed counter 
+// Get returns metric by type and name
+// if metricType is gauge, returns last metric
+// if metricType is counter, returns summed counter 
 func (s MetricService) Get(ctx context.Context, metricType, name string) (metric.Metric, error) {
 	metrics, err := s.storage.Get(ctx, metricType, name)
 	if err != nil {
@@ -52,9 +52,9 @@ func (s MetricService) Get(ctx context.Context, metricType, name string) (metric
 	}
 }
 
-//All returns all metrics from storage
-//if metricType is gauge, returns last metric
-//if metricType is counter, returns summed counter
+// All returns all metrics from storage
+// if metricType is gauge, returns last metric
+// if metricType is counter, returns summed counter
 func (s MetricService) All(ctx context.Context) ([]metric.Metric, error) {
 	allGauges, allCounters, err := s.all(ctx)
 	if err != nil {
@@ -82,7 +82,7 @@ func (s MetricService) All(ctx context.Context) ([]metric.Metric, error) {
 	return rs, nil
 }
 
-//Stats returns all metrics from storage as is, without post-processing
+// Stats returns all metrics from storage as is, without post-processing
 func (s MetricService) Stats(ctx context.Context) ([]metric.Metric, error) {
 	allGauges, allCounters, err := s.all(ctx)
 	if err != nil {
@@ -96,7 +96,7 @@ func (s MetricService) Stats(ctx context.Context) ([]metric.Metric, error) {
 	return rs, nil
 }
 
-//Ping returns error if storage is not accessed
+// Ping returns error if storage is not accessed
 func (s MetricService) Ping(ctx context.Context) error {
 	newCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -107,7 +107,7 @@ func (s MetricService) Ping(ctx context.Context) error {
 	return err
 }
 
-//Close closes storage
+// Close closes storage
 func (s MetricService) Close() {
 	s.storage.Close()
 }

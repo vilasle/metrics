@@ -241,8 +241,8 @@ func TestMemoryMetricRepository_Get(t *testing.T) {
 			sort.Slice(got, func(i, j int) bool {
 				return got[i].Name() < got[j].Name()
 			})
-			//storage it's map, order can be random and deep equal can return error, because match only length
-			//don't think that it's a problem, but it will become the problem need write check for searching object in slice with random order
+			// storage it's map, order can be random and deep equal can return error, because match only length
+			// don't think that it's a problem, but it will become the problem need write check for searching object in slice with random order
 			assert.Len(t, got, len(tt.want))
 		})
 	}

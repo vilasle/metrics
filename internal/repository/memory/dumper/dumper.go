@@ -22,16 +22,16 @@ const (
 
 type initOpt func(context.Context, *FileDumper) error
 
-//Config is setting for FileDumper
+// Config is setting for FileDumper
 type Config struct {
-	//Timeout define FileDumper mode, 
-	//if it's greater than 0, then saving metrics to file will execute by a timer, else immediately
+	// Timeout define FileDumper mode, 
+	// if it's greater than 0, then saving metrics to file will execute by a timer, else immediately
 	Timeout time.Duration
-	//Restore define behavior of FileDumper, if it's true, then FileDumper will restore metrics from file
+	// Restore define behavior of FileDumper, if it's true, then FileDumper will restore metrics from file
 	Restore bool
-	//Storage is metric's storage
+	// Storage is metric's storage
 	Storage repository.MetricRepository
-	//SerialWriter is writer for dumped metrics
+	// SerialWriter is writer for dumped metrics
 	SerialWriter
 }
 

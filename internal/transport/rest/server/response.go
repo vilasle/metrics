@@ -8,7 +8,7 @@ import (
 	"github.com/vilasle/metrics/internal/service"
 )
 
-//Response is the interface for wrapping http.ResponseWriter and post-processing before write response
+// Response is the interface for wrapping http.ResponseWriter and post-processing before write response
 type Response interface {
 	write(w http.ResponseWriter)
 }

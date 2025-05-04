@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	//CompressorWriter implements compression algorithm Flate, compress data and writes to Buffer
+	// CompressorWriter implements compression algorithm Flate, compress data and writes to Buffer
 	CompressorWriter interface {
 		io.Writer
 		Bytes() []byte

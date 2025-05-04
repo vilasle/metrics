@@ -15,7 +15,7 @@ import (
 )
 
 func showAllMetrics(svc service.MetricService, r *http.Request) Response {
-	//handler catch all unregistered endpoints and block they
+	// handler catch all unregistered endpoints and block they
 	if r.RequestURI != "/" {
 		return newTextResponse(emptyBody(), ErrForbiddenResource)
 	}

@@ -160,7 +160,7 @@ func checkHashSum(pC *[]byte, req *http.Request) (bool, error) {
 	key := req.Context().Value(middleware.HashContextKey)
 	hashSum := req.Header.Get("HashSHA256")
 
-	//nothing check
+	// nothing check
 	if hashSum == "" {
 		return true, nil
 	}
@@ -170,7 +170,7 @@ func checkHashSum(pC *[]byte, req *http.Request) (bool, error) {
 		return false, ErrInvalidKeyType
 	}
 
-	//nothing key for getting hash sum
+	// nothing key for getting hash sum
 	if sign == "" {
 		return true, nil
 	}
