@@ -283,3 +283,107 @@ func Test_gauge_ToJSON(t *testing.T) {
 		})
 	}
 }
+
+func Test_gauge_String(t *testing.T) {
+	tests := []struct {
+		name    string
+		metrics []gauge
+		wants   []string
+	}{
+		{
+			name: "gauge string format",
+			metrics: []gauge{
+				{
+					name:  "test1",
+					value: 123456,
+				},
+				{
+					name:  "test2",
+					value: 123.456,
+				},
+				{
+					name:  "test3",
+					value: 1.23456,
+				},
+			},
+			wants: []string{
+				"{type: gauge; name: test1; value: 123456.000000}",
+				"{type: gauge; name: test2; value: 123.456000}",
+				"{type: gauge; name: test3; value: 1.234560}",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		for i, m := range tt.metrics {
+			got := m.String()
+			assert.Equal(t, tt.wants[i], got)
+		}
+	}
+}
+
+func Test_gauge_Float64(t *testing.T) {
+	tests := []struct {
+		name    string
+		metrics []gauge
+		wants   []float64
+	}{
+		{
+			name: "gauge get float64 value",
+			metrics: []gauge{
+				{
+					name:  "test1",
+					value: 123456,
+				},
+				{
+					name:  "test2",
+					value: 123.456,
+				},
+				{
+					name:  "test3",
+					value: 1.23456,
+				},
+			},
+			wants: []float64{123456, 123.456, 1.23456},
+		},
+	}
+
+	for _, tt := range tests {
+		for i, m := range tt.metrics {
+			assert.Equal(t, tt.wants[i], m.Float64())
+		}
+	}
+}
+
+func Test_gauge_Int64(t *testing.T) {
+	tests := []struct {
+		name    string
+		metrics []gauge
+		wants   []int64
+	}{
+		{
+			name: "gauge get int64 value",
+			metrics: []gauge{
+				{
+					name:  "test1",
+					value: 123456,
+				},
+				{
+					name:  "test2",
+					value: 123.456,
+				},
+				{
+					name:  "test3",
+					value: 1.23456,
+				},
+			},
+			wants: []int64{123456, 123, 1},
+		},
+	}
+
+	for _, tt := range tests {
+		for i, m := range tt.metrics {
+			assert.Equal(t, tt.wants[i], m.Int64())
+		}
+	}
+}

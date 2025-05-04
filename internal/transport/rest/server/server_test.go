@@ -30,7 +30,7 @@ func TestHttpServer_Register(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewHTTPServer(":8080")
-			s.Register(tt.args.path, []string{http.MethodGet}, []string{}, tt.args.handler)
+			s.Register(tt.args.path, tt.args.handler, http.MethodGet)
 		})
 	}
 }
@@ -48,7 +48,7 @@ func TestHttpServer_StartStop(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewHTTPServer(":8080")
-			s.Register("/test", []string{}, []string{}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+			s.Register("/test", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 
 			go func() {
 				if err := s.Start(); (err != nil) != tt.wantErr {
@@ -84,7 +84,7 @@ func TestHttpServer_StartForceStop(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewHTTPServer(":8080")
-			s.Register("/test", []string{}, []string{}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+			s.Register("/test", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 
 			go func() {
 				if err := s.Start(); (err != nil) != tt.wantErr {

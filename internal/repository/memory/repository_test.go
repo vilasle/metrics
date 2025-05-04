@@ -4,7 +4,6 @@ import (
 	"context"
 	"reflect"
 	"sort"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -242,75 +241,9 @@ func TestMemoryMetricRepository_Get(t *testing.T) {
 			sort.Slice(got, func(i, j int) bool {
 				return got[i].Name() < got[j].Name()
 			})
-			//storage it's map, order can be random and deep equal can return error, because match only length
-			//don't think that it's a problem, but it will become the problem need write check for searching object in slice with random order
+			// storage it's map, order can be random and deep equal can return error, because match only length
+			// don't think that it's a problem, but it will become the problem need write check for searching object in slice with random order
 			assert.Len(t, got, len(tt.want))
-		})
-	}
-}
-
-func TestMemoryMetricRepository_getSaver(t *testing.T) {
-	type fields struct {
-		mxGauge   *sync.Mutex
-		gauges    gaugeStorage
-		mxCounter *sync.Mutex
-		counters  counterStorage
-	}
-	type args struct {
-		metricType string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   saver
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &MemoryMetricRepository{
-				mxGauge:   tt.fields.mxGauge,
-				gauges:    tt.fields.gauges,
-				mxCounter: tt.fields.mxCounter,
-				counters:  tt.fields.counters,
-			}
-			if got := r.getSaver(tt.args.metricType); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MemoryMetricRepository.getSaver() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMemoryMetricRepository_getGetter(t *testing.T) {
-	type fields struct {
-		mxGauge   *sync.Mutex
-		gauges    gaugeStorage
-		mxCounter *sync.Mutex
-		counters  counterStorage
-	}
-	type args struct {
-		metricType string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   getter
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &MemoryMetricRepository{
-				mxGauge:   tt.fields.mxGauge,
-				gauges:    tt.fields.gauges,
-				mxCounter: tt.fields.mxCounter,
-				counters:  tt.fields.counters,
-			}
-			if got := r.getGetter(tt.args.metricType); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MemoryMetricRepository.getGetter() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }

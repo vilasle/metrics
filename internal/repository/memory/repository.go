@@ -13,6 +13,7 @@ type gaugeStorage map[string]metric.Metric
 
 type counterStorage map[string][]metric.Metric
 
+// MemoryMetricRepository is the struct that implements the repository.MetricRepository interface and stores the metrics in memory.
 type MemoryMetricRepository struct {
 	mxGauge   *sync.Mutex
 	gauges    gaugeStorage
@@ -20,6 +21,7 @@ type MemoryMetricRepository struct {
 	counters  counterStorage
 }
 
+// NewMetricRepository returns a new instance of MemoryMetricRepository.
 func NewMetricRepository() *MemoryMetricRepository {
 	return &MemoryMetricRepository{
 		mxGauge:   &sync.Mutex{},
@@ -29,6 +31,8 @@ func NewMetricRepository() *MemoryMetricRepository {
 	}
 }
 
+// Save saves the metrics in the repository
+// returns an error if the set of metrics is empty or the metric type is unknown.
 func (r *MemoryMetricRepository) Save(ctx context.Context, entity ...metric.Metric) error {
 	switch len(entity) {
 	case 0:
@@ -37,19 +41,21 @@ func (r *MemoryMetricRepository) Save(ctx context.Context, entity ...metric.Metr
 		e := entity[0]
 		return r.getSaver(e.Type()).save(e)
 	default:
-		//TODO wrap it
 		return r.saveAll(entity...)
 	}
 }
 
+// Get - gets the metrics from the repository or returns an error if the metric type is unknown.
 func (r *MemoryMetricRepository) Get(ctx context.Context, metricType string, filterName ...string) ([]metric.Metric, error) {
 	return r.getGetter(metricType).get(filterName...)
 }
 
+// Ping - check connection with repository
 func (r *MemoryMetricRepository) Ping(ctx context.Context) error {
 	return nil
 }
 
+// Close - closes the repository
 func (r *MemoryMetricRepository) Close() {}
 
 func (r *MemoryMetricRepository) getSaver(metricType string) saver {

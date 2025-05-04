@@ -8,30 +8,34 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
 )
 
+// HTTPServer is the structure that holds and wraps the http server
 type HTTPServer struct {
-	srv *http.Server
-	mux *chi.Mux
-	//FIXME use atomic
+	srv     *http.Server
+	mux     *chi.Mux
 	running atomic.Bool
 }
 
-func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTTPServer {
+// NewHTTPServer create new instance of HTTPServer
+// addr is the address to listen on
+// middlewareOptions are the middleware to use
+func NewHTTPServer(addr string, middlewareOptions ...func(http.Handler) http.Handler) *HTTPServer {
 	mux := chi.NewRouter()
+
 	mux.Use(middleware.Recoverer)
-	mux.Use(middleware.RequestID)
-	for _, m := range options {
+	for _, m := range middlewareOptions {
 		mux.Use(m)
 	}
-	// middleware.Compressor
+
+	mux.Mount("/debug", middleware.Profiler())
+
 	srv := &HTTPServer{
 		srv: &http.Server{
 			Addr:         addr,
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
-			IdleTimeout:  60 * time.Second,
+			ReadTimeout:  60 * time.Second,
+			WriteTimeout: 60 * time.Second,
+			IdleTimeout:  120 * time.Second,
 		},
 		mux:     mux,
 		running: atomic.Bool{},
@@ -41,19 +45,19 @@ func NewHTTPServer(addr string, options ...func(http.Handler) http.Handler) *HTT
 	return srv
 }
 
-func (s *HTTPServer) Register(path string, methods []string, contentTypes []string, handler http.Handler) {
-	s.mux.Route(path, func(r chi.Router) {
-		if len(methods) > 0 {
-			r.Use(mdw.AllowedMethods(methods...))
-		}
+// Register - register new handlers
+func (s *HTTPServer) Register(path string, handler http.Handler, methods ...string) {
+	if len(methods) == 0 {
+		s.mux.Handle(path, handler)
+		return
+	}
 
-		if len(contentTypes) > 0 {
-			r.Use(mdw.AllowedContentType(contentTypes...))
-		}
-		r.Handle("/", handler)
-	})
+	for _, method := range methods {
+		s.mux.Method(method, path, handler)
+	}
 }
 
+// Start - start the server
 func (s *HTTPServer) Start() error {
 	s.srv.Handler = s.mux
 	s.running.Swap(true)
@@ -69,11 +73,13 @@ func (s *HTTPServer) Start() error {
 	return err
 }
 
+// IsRunning - check if the server is running
 func (s *HTTPServer) IsRunning() bool {
 	v := s.running.Load()
 	return v
 }
 
+// Stop - tries to stop the server gracefully
 func (s *HTTPServer) Stop() error {
 	if err := s.srv.Shutdown(context.Background()); err != nil {
 		s.running.Swap(false)
@@ -82,6 +88,7 @@ func (s *HTTPServer) Stop() error {
 	return nil
 }
 
+// ForceStop - tries to stop the server forcefully
 func (s *HTTPServer) ForceStop() error {
 	return s.srv.Close()
 }

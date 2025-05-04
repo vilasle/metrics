@@ -16,6 +16,7 @@ import (
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/collector"
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest/json"
@@ -48,7 +49,10 @@ func getConfig() runConfig {
 		if v, err := strconv.Atoi(envReportSec); err == nil {
 			reportSec = &v
 		} else {
-			fmt.Printf("can not parse REPORT_INTERVAL %s. will use value %d\n", envReportSec, *reportSec)
+			logger.Warn("can not parse env, will use default value",
+				"env", "REPORT_INTERVAL",
+				"value", envReportSec,
+				"default", *reportSec)
 		}
 	}
 
@@ -57,7 +61,10 @@ func getConfig() runConfig {
 		if v, err := strconv.Atoi(envPollSec); err == nil {
 			pollSec = &v
 		} else {
-			fmt.Printf("can not parse POLL_INTERVAL %s. will use value %d\n", envReportSec, *pollSec)
+			logger.Warn("can not parse env, will use default value",
+				"env", "POLL_INTERVAL",
+				"value", envPollSec,
+				"default", *pollSec)
 		}
 	}
 
@@ -71,7 +78,10 @@ func getConfig() runConfig {
 		if v, err := strconv.Atoi(envRateLimit); err == nil {
 			rateLimit = &v
 		} else {
-			fmt.Printf("can not parse RATE_LIMIT %s. will use value %d\n", envReportSec, *rateLimit)
+			logger.Warn("can not parse env, will use default value",
+				"env", "RATE_LIMIT",
+				"value", envRateLimit,
+				"default", *rateLimit)
 		}
 	}
 
@@ -85,6 +95,8 @@ func getConfig() runConfig {
 }
 
 func main() {
+	logger.Init(os.Stdout, false)
+
 	conf := getConfig()
 
 	c := collector.NewRuntimeCollector()
@@ -93,7 +105,7 @@ func main() {
 	err := c.RegisterMetric(metrics...)
 
 	if err != nil {
-		fmt.Printf("can to register metric by reason %v\n", err)
+		logger.Error("can to register metric", "error", err)
 		os.Exit(1)
 	}
 
@@ -103,7 +115,7 @@ func main() {
 	c.RegisterEvent(func(c *collector.RuntimeCollector) {
 		counter := c.GetCounterValue("PollCount")
 		if err := counter.AddValue(1); err != nil {
-			fmt.Printf("can not add value to counter %v\n", err)
+			logger.Error("can not add value to counter", "err", err)
 		}
 		c.SetValue(counter)
 	})
@@ -124,29 +136,28 @@ func main() {
 
 	hashKey, err := getHashKeyFromFile(conf.hashSumKey)
 	if err != nil {
-		fmt.Printf("can not read key from file %s by reason %v\n", conf.hashSumKey, err)
+		logger.Error("can not read key from file", "file", conf.hashSumKey, "error", err)
 	}
 
-	fmt.Printf("sending metrics to %s\n", updateAddress)
-	fmt.Printf("pulling metrics every %d sec\n", conf.poll/time.Second)
-	fmt.Printf("sending report every %d sec\n", conf.report/time.Second)
-	fmt.Printf("using key %s\n", hashKey)
-
-	fmt.Println("press ctrl+c to exit")
+	logger.Debug("starting agent",
+		"address", updateAddress,
+		"pollInterval", conf.poll/time.Second,
+		"reportInterval", conf.report/time.Second,
+		"key", hashKey)
 
 	sender, err := json.NewHTTPJsonSender(updateAddress, hashKey, conf.rateLimit)
 	if err != nil {
-		fmt.Printf("can not create sender by reason %v", err)
+		logger.Error("can not create sender", "err", err)
 		os.Exit(2)
 	}
 
-	agent := NewCollectorAgent(c, sender, delay{collect: pollInterval, report: reportInterval})
+	agent := newCollectorAgent(c, sender, delay{collect: pollInterval, report: reportInterval})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go agent.Run(ctx)
+	go agent.run(ctx)
 
 	<-sigint
-	fmt.Println("stopping agent")
+	logger.Info("stopping agent")
 	cancel()
 
 	time.Sleep(time.Millisecond * 1500)
@@ -225,7 +236,7 @@ func collectExtraMemMetrics(wg *sync.WaitGroup, metricCh chan<- metric.Metric) {
 		metricCh <- metric.NewGaugeMetric("TotalMemory", float64(v.Total))
 		metricCh <- metric.NewGaugeMetric("FreeMemory", float64(v.Free))
 	} else {
-		fmt.Printf("collection memory's metric was failed by reason %v\n", err)
+		logger.Error("collection memory's metric was failed", "err", err)
 	}
 }
 
@@ -234,7 +245,7 @@ func collectExtraCPUMetrics(wg *sync.WaitGroup, metricCh chan<- metric.Metric) {
 
 	result, err := cpu.Percent((time.Second * 3), true)
 	if err != nil {
-		fmt.Printf("collection cpu usage was failed by reason %v\n", err)
+		logger.Error("collection cpu usage was failed", "err", err)
 		return
 	}
 

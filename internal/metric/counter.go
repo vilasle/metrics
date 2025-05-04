@@ -12,18 +12,24 @@ type counter struct {
 	value int64
 }
 
+var _ Metric = (*counter)(nil)
+
+// Name returns name of metric
 func (c counter) Name() string {
 	return c.name
 }
 
+// Value returns value as string
 func (c counter) Value() string {
 	return strconv.FormatInt(c.value, 10)
 }
 
+// Type returns type of metric
 func (c counter) Type() string {
 	return TypeCounter
 }
 
+// AddValue adds value to metric, accept int64 or float64
 func (c *counter) AddValue(val any) error {
 	switch v := val.(type) {
 	case int64:
@@ -36,6 +42,7 @@ func (c *counter) AddValue(val any) error {
 	return nil
 }
 
+// SetValue sets value to metric, accept int64
 func (c *counter) SetValue(val any) error {
 	if v, ok := val.(int64); ok {
 		c.value = v
@@ -45,14 +52,18 @@ func (c *counter) SetValue(val any) error {
 	return nil
 }
 
+// String returns string representation of metric
+// representation string likes {type: metric_type; name: metric_name; value: metric_value}
 func (c counter) String() string {
 	return fmt.Sprintf("{type: %s; name: %s; value: %d}", c.Type(), c.name, c.value)
 }
 
+// Float64 returns float64 representation of metric
 func (c counter) Float64() float64 {
 	return float64(c.value)
 }
 
+// Int64 returns int64 representation of metric
 func (c counter) Int64() int64 {
 	return c.value
 }
@@ -65,6 +76,7 @@ func parseCounter(name string, value string) (*counter, error) {
 	}
 }
 
+// MarshalJSON returns json representation of metric
 func (c counter) MarshalJSON() ([]byte, error) {
 	metric := struct {
 		ID    string `json:"id"`

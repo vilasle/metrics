@@ -2,8 +2,8 @@ package postgresql
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/vilasle/metrics/internal/metric"
 )
 
@@ -36,7 +36,7 @@ func (g *counterGetter) getByFilter(ctx context.Context, name ...string) ([]metr
 		GROUP BY id
 		`
 
-	if r, err := g.db.Query(ctx, txt, name); err == nil {
+	if r, err := g.db.query(ctx, txt, name); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
@@ -45,14 +45,14 @@ func (g *counterGetter) getByFilter(ctx context.Context, name ...string) ([]metr
 
 func (g *counterGetter) getAll(ctx context.Context) ([]metric.Metric, error) {
 	txt := `SELECT id, value FROM counters`
-	if r, err := g.db.Query(ctx, txt); err == nil {
+	if r, err := g.db.query(ctx, txt); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
 	}
 }
 
-func (g *counterGetter) parseResult(rows pgx.Rows) ([]metric.Metric, error) {
+func (g *counterGetter) parseResult(rows *sql.Rows) ([]metric.Metric, error) {
 	rs := make([]metric.Metric, 0)
 	for rows.Next() {
 		var name string
@@ -62,7 +62,7 @@ func (g *counterGetter) parseResult(rows pgx.Rows) ([]metric.Metric, error) {
 		}
 		rs = append(rs, metric.NewCounterMetric(name, value))
 	}
-	return rs, nil
+	return rs, rows.Err()
 
 }
 
@@ -79,7 +79,7 @@ func (g *gaugeGetter) get(ctx context.Context, filterName ...string) ([]metric.M
 
 func (g *gaugeGetter) getByFilter(ctx context.Context, name ...string) ([]metric.Metric, error) {
 	txt := `SELECT id, value FROM gauges WHERE "id" = any($1)`
-	if r, err := g.db.Query(ctx, txt, name); err == nil {
+	if r, err := g.db.query(ctx, txt, name); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
@@ -88,14 +88,14 @@ func (g *gaugeGetter) getByFilter(ctx context.Context, name ...string) ([]metric
 
 func (g *gaugeGetter) getAll(ctx context.Context) ([]metric.Metric, error) {
 	txt := `SELECT id, value FROM gauges`
-	if r, err := g.db.Query(ctx, txt); err == nil {
+	if r, err := g.db.query(ctx, txt); err == nil {
 		return g.parseResult(r)
 	} else {
 		return []metric.Metric{}, err
 	}
 }
 
-func (g *gaugeGetter) parseResult(rows pgx.Rows) ([]metric.Metric, error) {
+func (g *gaugeGetter) parseResult(rows *sql.Rows) ([]metric.Metric, error) {
 	rs := make([]metric.Metric, 0)
 	for rows.Next() {
 		var name string

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"io"
@@ -12,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
@@ -22,7 +22,8 @@ import (
 	"github.com/vilasle/metrics/internal/repository/memory/dumper"
 	"github.com/vilasle/metrics/internal/repository/postgresql"
 
-	mdw "github.com/vilasle/metrics/internal/transport/rest/middlieware"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
 
@@ -104,13 +105,13 @@ func getConfig() runConfig {
 }
 
 func main() {
+	logger.Init(os.Stdout, false)
+
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("application is in a panic", err)
+			logger.Error("application is in a panic", "err", err)
 		}
 	}()
-
-	logger.Init(os.Stdout, false)
 
 	defer logger.Close()
 
@@ -158,7 +159,7 @@ func shutdown(srv *rest.HTTPServer) {
 		select {
 		case err := <-stopErr:
 			if err != nil {
-				fmt.Println("server stopped with error", err)
+				logger.Error("server stopped with error", "err", err)
 				srv.ForceStop()
 			} else {
 				os.Exit(0)
@@ -166,7 +167,7 @@ func shutdown(srv *rest.HTTPServer) {
 		case <-tickForce.C:
 			go srv.ForceStop()
 		case <-tickKill.C:
-			fmt.Println("server did not stop during expected time")
+			logger.Error("server did not stop during expected time")
 			os.Exit(1)
 		}
 	}
@@ -183,7 +184,8 @@ func createRepositoryService(config runConfig) (service.MetricService, context.C
 
 	storage, err := getStorage(ctx, config)
 	if err != nil {
-		logger.Fatalw("can not create storage", "error", err)
+		logger.Errorw("can not create storage", "error", err)
+		os.Exit(1)
 	}
 
 	return srvSvc.NewMetricService(storage), cancel
@@ -199,10 +201,10 @@ func getStorage(ctx context.Context, config runConfig) (repository.MetricReposit
 func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
 	if fs, err := dumper.NewFileStream(config.dumpFilePath); err == nil {
 		return dumper.NewFileDumper(ctx, dumper.Config{
-			Timeout: (time.Second * time.Duration(config.dumpInterval)),
-			Restore: config.restore,
-			Storage: memory.NewMetricRepository(),
-			Stream:  fs,
+			Timeout:      (time.Second * time.Duration(config.dumpInterval)),
+			Restore:      config.restore,
+			Storage:      memory.NewMetricRepository(),
+			SerialWriter: fs,
 		})
 	} else {
 		return nil, err
@@ -210,25 +212,25 @@ func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepo
 }
 
 func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
-	pool, err := pgxpool.New(ctx, config.databaseDSN)
+	db, err := sql.Open("pgx/v5", config.databaseDSN)
 	if err != nil {
 		return nil, err
 	}
-	return postgresql.NewRepository(pool)
+	return postgresql.NewRepository(db)
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
+	middlewares := make([]func(http.Handler) http.Handler, 0, 4)
+	middlewares = append(middlewares, mdw.WithLogger(), mdw.Compress("application/json", "text/html"))
 
 	hash, err := getHashKeyFromFile(config.hashSumKey)
 	if err != nil {
 		logger.Error("can not get hash key from file", "error", err)
+	} else {
+		middlewares = append(middlewares, mdw.CalculateHashSum(hash), mdw.HashKey(hash))
 	}
 
-	server := rest.NewHTTPServer(config.address,
-		mdw.WithLogger(),
-		mdw.Compress("application/json", "text/html"),
-		mdw.CalculateHashSum(hash),
-		mdw.HashKey(hash))
+	server := rest.NewHTTPServer(config.address, middlewares...)
 
 	svc, cancel := createRepositoryService(config)
 
@@ -237,17 +239,13 @@ func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.Cance
 }
 
 func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
-	srv.Register("/", nil, nil, rest.DisplayAllMetrics(svc))
-	srv.Register("/update/", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
-	srv.Register("/updates/", toSlice(http.MethodPost), nil, rest.BatchUpdate(svc))
-	srv.Register("/value/", toSlice(http.MethodPost), nil, rest.DisplayMetric(svc))
-	srv.Register("/value/{type}/{name}", toSlice(http.MethodGet), nil, rest.DisplayMetric(svc))
-	srv.Register("/update/{type}/{name}/{value}", toSlice(http.MethodPost), nil, rest.UpdateMetric(svc))
-	srv.Register("/ping", toSlice(http.MethodGet), nil, rest.Ping(svc))
-}
-
-func toSlice(it ...string) []string {
-	return it
+	srv.Register("/", rest.DisplayAllMetrics(svc), http.MethodGet)
+	srv.Register("/ping", rest.Ping(svc), http.MethodGet)
+	srv.Register("/value/", rest.DisplayMetric(svc), http.MethodPost)
+	srv.Register("/update/", rest.UpdateMetric(svc), http.MethodPost)
+	srv.Register("/updates/", rest.BatchUpdate(svc), http.MethodPost)
+	srv.Register("/value/{type}/{name}", rest.DisplayMetric(svc), http.MethodGet)
+	srv.Register("/update/{type}/{name}/{value}", rest.UpdateMetric(svc), http.MethodPost)
 }
 
 func getHashKeyFromFile(path string) (string, error) {

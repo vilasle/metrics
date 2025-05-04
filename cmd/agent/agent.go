@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
+	"github.com/vilasle/metrics/internal/logger"
 	agent "github.com/vilasle/metrics/internal/service"
 )
 
@@ -23,7 +23,7 @@ type delay struct {
 	collect time.Duration
 }
 
-func NewCollectorAgent(collector agent.Collector, sender agent.Sender, delaySetting delay) collectorAgent {
+func newCollectorAgent(collector agent.Collector, sender agent.Sender, delaySetting delay) collectorAgent {
 	return collectorAgent{
 		Collector: collector,
 		Sender:    sender,
@@ -38,31 +38,31 @@ func NewCollectorAgent(collector agent.Collector, sender agent.Sender, delaySett
 	}
 }
 
-func (a collectorAgent) Run(ctx context.Context) {
+func (a collectorAgent) run(ctx context.Context) {
 	newCtx, cancel := context.WithCancel(ctx)
 
-	go a.CollectWithContext(newCtx)
-	go a.ReportWithContext(newCtx)
+	go a.collectWithContext(newCtx)
+	go a.reportWithContext(newCtx)
 
 	<-ctx.Done()
-	fmt.Println("got cancel from main")
+	logger.Debug("got cancel from main")
 	cancel()
 }
 
-func (a collectorAgent) Collect() {
+func (a collectorAgent) collect() {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 
 	a.Collector.Collect()
 }
 
-func (a collectorAgent) CollectWithContext(ctx context.Context) {
+func (a collectorAgent) collectWithContext(ctx context.Context) {
 	t := time.NewTicker(a.collectDelay)
 	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("collector got cancel signal")
+			logger.Debug("collector got cancel signal")
 			return
 		case <-t.C:
 			a.Collector.Collect()
@@ -70,21 +70,21 @@ func (a collectorAgent) CollectWithContext(ctx context.Context) {
 	}
 }
 
-func (a collectorAgent) Report() {
-	if err := a.report(); err != nil {
-		fmt.Printf("failed to report metrics: %v\n", err)
+func (a collectorAgent) report() {
+	if err := a.sendReport(); err != nil {
+		logger.Error("failed to report metrics", "err", err)
 	} else {
 		a.resetPoolCounter()
 	}
 }
 
-func (a collectorAgent) ReportWithContext(ctx context.Context) {
+func (a collectorAgent) reportWithContext(ctx context.Context) {
 	t := time.NewTicker(a.reportDelay)
 	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("reporter got cancel signal")
+			logger.Debug("reporter got cancel signal")
 			return
 		case <-t.C:
 			t.Stop()
@@ -94,7 +94,7 @@ func (a collectorAgent) ReportWithContext(ctx context.Context) {
 	}
 }
 
-func (a collectorAgent) report() (err error) {
+func (a collectorAgent) sendReport() (err error) {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 	for _, d := range a.repeat {

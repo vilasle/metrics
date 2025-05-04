@@ -2,7 +2,6 @@ package collector
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"runtime"
 	"sync"
@@ -13,6 +12,8 @@ import (
 
 type eventHandler func(c *RuntimeCollector)
 
+// RuntimeCollector provided way for collection runtime metrics 
+// with options registration extra events where can add extra metrics or make postprocess collected metrics  
 type RuntimeCollector struct {
 	counters map[string]metric.Metric
 	gauges   map[string]metric.Metric
@@ -21,6 +22,7 @@ type RuntimeCollector struct {
 	mxMetric *sync.Mutex
 }
 
+// NewRuntimeCollector returns new instance of RuntimeCollector
 func NewRuntimeCollector() *RuntimeCollector {
 	return &RuntimeCollector{
 		counters: make(map[string]metric.Metric, 0),
@@ -31,6 +33,8 @@ func NewRuntimeCollector() *RuntimeCollector {
 	}
 }
 
+// RegisterMetric register new metric and check that golang runtime provide information about this 
+// return error if metric is not valid
 func (c *RuntimeCollector) RegisterMetric(metrics ...string) error {
 	errs := make([]error, 0)
 
@@ -48,10 +52,13 @@ func (c *RuntimeCollector) RegisterMetric(metrics ...string) error {
 	return errors.Join(errs...)
 }
 
+// RegisterEvent register new event handler, events will raise after function Collect()
 func (c *RuntimeCollector) RegisterEvent(event eventHandler) {
 	c.events = append(c.events, event)
 }
 
+// Collect reads stats from runtime.MemStats, transform it to suited metrics and stores they in collections
+// raises events after collecting 
 func (c *RuntimeCollector) Collect() {
 	if len(c.metrics) == 0 {
 		return
@@ -79,7 +86,7 @@ func (c *RuntimeCollector) Collect() {
 		case reflect.Float32, reflect.Float64:
 			c.gauges[v] = metric.NewGaugeMetric(v, fld.Float())
 		default:
-			fmt.Printf("unsupported type %s\n", fld.Kind().String())
+			logger.Error("unsupported type", "type", fld.Kind().String())
 		}
 	}
 	c.mxMetric.Unlock()
@@ -87,12 +94,7 @@ func (c *RuntimeCollector) Collect() {
 	c.execEvents()
 }
 
-func (c *RuntimeCollector) execEvents() {
-	for _, v := range c.events {
-		v(c)
-	}
-}
-
+// AllMetrics collects counter and gauge to slice of metric and return this
 func (c *RuntimeCollector) AllMetrics() []metric.Metric {
 	c.mxMetric.Lock()
 	defer c.mxMetric.Unlock()
@@ -113,6 +115,7 @@ func (c *RuntimeCollector) AllMetrics() []metric.Metric {
 	return metrics
 }
 
+// GetCounterValue finds counter by name and returns it
 func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 	c.mxMetric.Lock()
 	defer c.mxMetric.Unlock()
@@ -124,6 +127,7 @@ func (c *RuntimeCollector) GetCounterValue(name string) metric.Metric {
 	}
 }
 
+// GetGaugeValue finds gauge by name and returns it
 func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
 	c.mxMetric.Lock()
 	defer c.mxMetric.Unlock()
@@ -134,6 +138,7 @@ func (c *RuntimeCollector) GetGaugeValue(name string) metric.Metric {
 	return metric.NewGaugeMetric(name, 0)
 }
 
+// SetValue replaces metric on collections to metric which are passed to input
 func (c *RuntimeCollector) SetValue(value metric.Metric) {
 	c.mxMetric.Lock()
 	switch value.Type() {
@@ -145,6 +150,7 @@ func (c *RuntimeCollector) SetValue(value metric.Metric) {
 	c.mxMetric.Unlock()
 }
 
+// ResetCounter finds metric by name and replaces it to metric with zero value 
 func (c *RuntimeCollector) ResetCounter(counterName string) {
 	m := metric.NewCounterMetric(counterName, 0)
 
@@ -152,3 +158,11 @@ func (c *RuntimeCollector) ResetCounter(counterName string) {
 	c.counters[counterName] = m
 	c.mxMetric.Unlock()
 }
+
+func (c *RuntimeCollector) execEvents() {
+	for _, v := range c.events {
+		v(c)
+	}
+}
+
+

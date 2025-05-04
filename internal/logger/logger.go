@@ -21,12 +21,15 @@ func init() {
 	logger = baseLogger.Sugar()
 }
 
-type WriterSyncer interface {
+type writerSyncer interface {
 	io.Writer
 	Sync() error
 }
 
-func Init(wrt WriterSyncer, debug bool) {
+// Init - initialize logger
+// wrt - where need to write logs 
+// debug - if true it set DebugLevel, if false it set InfoLevel 
+func Init(wrt writerSyncer, debug bool) {
 	Close()
 
 	level := zap.InfoLevel
@@ -47,66 +50,67 @@ func Init(wrt WriterSyncer, debug bool) {
 	logger = logger.With("uuid", uuid.New().String())
 }
 
+// Close - flushes buffered logs
 func Close() {
 	baseLogger.Sync()
 }
 
+// Debug logs the provided arguments at [DebugLevel]
 func Debug(args ...interface{}) {
 	logger.Debug(args...)
 }
 
+// Info logs the provided arguments at [InfoLevel]
 func Info(args ...interface{}) {
 	logger.Info(args...)
 }
 
+// Warn logs the provided arguments at [WarnLevel]
 func Warn(args ...interface{}) {
 	logger.Warn(args...)
 }
 
+// Error logs the provided arguments at [ErrorLevel]
 func Error(args ...interface{}) {
 	logger.Error(args...)
 }
 
-func Fatal(args ...interface{}) {
-	logger.Fatal(args...)
-}
-
+// Debugf formats the message according to the format specifier and logs it at [DebugLevel]
 func Debugf(template string, args ...interface{}) {
 	logger.Debugf(template, args...)
 }
 
+// Infof formats the message according to the format specifier and logs it at [InfoLevel]
 func Infof(template string, args ...interface{}) {
 	logger.Infof(template, args...)
 }
 
+// Warnf formats the message according to the format specifier and logs it at [WarnLevel]
 func Warnf(template string, args ...interface{}) {
 	logger.Warnf(template, args...)
 }
 
+// Errorf formats the message according to the format specifier and logs it at [ErrorLevel]
 func Errorf(template string, args ...interface{}) {
 	logger.Errorf(template, args...)
 }
 
-func Fatalf(template string, args ...interface{}) {
-	logger.Fatalf(template, args...)
-}
-
+// Debugw logs a message with some additional context. Context is key-value pairs 
 func Debugw(msg string, keysAndValues ...interface{}) {
 	logger.Debugw(msg, keysAndValues...)
 }
 
+// Infow logs a message with some additional context. Context is key-value pairs 
 func Infow(msg string, keysAndValues ...interface{}) {
 	logger.Infow(msg, keysAndValues...)
 }
 
+// Warnw logs a message with some additional context. Context is key-value pairs 
 func Warnw(msg string, keysAndValues ...interface{}) {
 	logger.Warnw(msg, keysAndValues...)
 }
 
+// Errorw logs a message with some additional context. Context is key-value pairs 
 func Errorw(msg string, keysAndValues ...interface{}) {
 	logger.Errorw(msg, keysAndValues...)
-}
-
-func Fatalw(msg string, keysAndValues ...interface{}) {
-	logger.Fatalw(msg, keysAndValues...)
 }
