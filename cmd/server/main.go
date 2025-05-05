@@ -139,8 +139,7 @@ func main() {
 	time.Sleep(time.Second * 3)
 
 	if !server.IsRunning() {
-		logger.Error("server stopped unexpected")
-		os.Exit(1)
+		logger.Fatal("server stopped unexpected")
 	}
 
 	shutdown(server)

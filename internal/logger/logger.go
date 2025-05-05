@@ -75,6 +75,11 @@ func Error(args ...interface{}) {
 	logger.Error(args...)
 }
 
+// Error logs the provided arguments at [FatalLevel] and calls os.Exit
+func Fatal(args ...interface{}) {
+	logger.Fatal(args...)
+}
+
 // Debugf formats the message according to the format specifier and logs it at [DebugLevel]
 func Debugf(template string, args ...interface{}) {
 	logger.Debugf(template, args...)
