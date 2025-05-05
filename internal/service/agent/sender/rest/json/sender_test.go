@@ -13,20 +13,22 @@ import (
 
 func TestHTTPSender_Send(t *testing.T) {
 	tests := []struct {
-		name       string
-		handler    http.Handler
-		wantError  bool
-		metrics    metric.Metric
-		hashSumKey string
+		name           string
+		handler        http.Handler
+		wantError      bool
+		metrics        metric.Metric
+		hashSumKey     string
+		useCompression bool
 	}{
 		{
 			name: "success",
 			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}),
-			wantError:  false,
-			metrics:    metric.NewGaugeMetric("test", 134.5),
-			hashSumKey: "r312313gfdg32123",
+			wantError:      false,
+			metrics:        metric.NewGaugeMetric("test", 134.5),
+			hashSumKey:     "r312313gfdg32123",
+			useCompression: true,
 		},
 		{
 			name: "failure not found",
@@ -55,7 +57,7 @@ func TestHTTPSender_Send(t *testing.T) {
 
 			sender := HTTPJsonSender{
 				URL:        u,
-				httpClient: newClient(false),
+				httpClient: newClient(tt.useCompression),
 				hashSumKey: tt.hashSumKey,
 				req:        make(chan metric.Metric, 1),
 				resp:       make(chan error, 1),

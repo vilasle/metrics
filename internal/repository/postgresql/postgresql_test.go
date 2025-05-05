@@ -233,3 +233,38 @@ func TestPostgresqlMetricRepository_Save(t *testing.T) {
 	}
 
 }
+
+func TestPostgresqlMetricRepository_NewRepository(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err, "can not create sqlmock")
+
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS counters").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS gauges").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("CREATE INDEX IF NOT EXISTS counter_name_idx").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	_, err = NewRepository(db)
+	assert.NoError(t, err)
+}
+
+func TestPostgresqlMetricRepository_getGetter(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	r := repeater{db: db, repeatSteps: []time.Duration{time.Second}}
+	repo := PostgresqlMetricRepository{r}
+
+	gGetter := repo.getGetter("gauge")
+	cGetter := repo.getGetter("counter")
+	uGetter := repo.getGetter("unknown")
+
+
+	_, ok := gGetter.(*gaugeGetter)
+	assert.True(t, ok)
+	_, ok = cGetter.(*counterGetter)
+	assert.True(t, ok)
+	_, ok = uGetter.(*unknownGetter)
+	assert.True(t, ok)
+
+}
