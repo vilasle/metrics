@@ -452,6 +452,7 @@ jobs:
          expected_percent=40
          percent=$(go test ./... -coverprofile cover.out >> /dev/null && go tool cover -func cover.out | tail -n 1 | grep -Po '[0-9]{1,3}.[0-9]{1,3}%$' | cut -d . -f1) && rm -rf cover.out
          echo "current percent: $percent" && echo "expected percent: $expected_percent"
+         if [[$percent -lt $expected_percent]]; then echo "insufficient percentage of coverage"; return 1; fi
       # - name: "Code increment #19-20. Check coverage percent"
       #   if: |
       #     github.ref == 'refs/heads/main' ||
