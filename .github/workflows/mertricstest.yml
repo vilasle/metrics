@@ -466,4 +466,4 @@ jobs:
           && go tool cover -func cover.out | tail -n 1 | grep -Po '[0-9]{1,3}.[0-9]{1,3}%$' | cut -d . -f1) \
           && rm -rf cover.out \
           && echo "current percent: $percent" && echo "expected percent: 55" \
-          && if [[ $percent -lt 55 ]]; then echo "insufficient percentage of coverage"; exit 1; fi
+          && if [[ "$percent" -lt 55 ]]; then echo "insufficient percentage of coverage"; exit 1; fi
