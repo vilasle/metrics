@@ -95,6 +95,8 @@ func getConfig() runConfig {
 }
 
 func main() {
+	showVersion()
+
 	logger.Init(os.Stdout, false)
 
 	conf := getConfig()

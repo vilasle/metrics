@@ -105,6 +105,8 @@ func getConfig() runConfig {
 }
 
 func main() {
+	showVersion()
+
 	logger.Init(os.Stdout, false)
 
 	defer func() {
