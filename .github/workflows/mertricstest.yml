@@ -462,6 +462,7 @@ jobs:
           github.head_ref == 'iter19' ||
           github.head_ref == 'iter20'
         run: |
+          echo "current script $0"
           echo $0
           expected_percent=55
           percent=$(go test ./... -coverprofile cover.out >> /dev/null && go tool cover -func cover.out | tail -n 1 | grep -Po '[0-9]{1,3}.[0-9]{1,3}%$' | cut -d . -f1) && rm -rf cover.out
