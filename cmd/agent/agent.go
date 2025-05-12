@@ -53,7 +53,7 @@ func (a collectorAgent) collect() {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 
-	a.Collector.Collect()
+	a.Collect()
 }
 
 func (a collectorAgent) collectWithContext(ctx context.Context) {
@@ -65,7 +65,7 @@ func (a collectorAgent) collectWithContext(ctx context.Context) {
 			logger.Debug("collector got cancel signal")
 			return
 		case <-t.C:
-			a.Collector.Collect()
+			a.Collect()
 		}
 	}
 }
@@ -108,5 +108,5 @@ func (a collectorAgent) sendReport() (err error) {
 }
 
 func (a collectorAgent) resetPoolCounter() {
-	a.Collector.ResetCounter("PollCount")
+	a.ResetCounter("PollCount")
 }
