@@ -20,6 +20,7 @@ import (
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/collector"
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest/json"
+	"github.com/vilasle/metrics/internal/version"
 )
 
 type runConfig struct {
@@ -94,8 +95,11 @@ func getConfig() runConfig {
 	}
 }
 
+var buildVersion, buildDate, buildCommit string
+
 func main() {
-	showVersion()
+	version.ShowVersion(buildVersion, buildDate, buildCommit)
+	// showVersion()
 
 	logger.Init(os.Stdout, false)
 

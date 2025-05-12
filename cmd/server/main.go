@@ -17,6 +17,7 @@ import (
 	"github.com/vilasle/metrics/internal/repository"
 	"github.com/vilasle/metrics/internal/service"
 	srvSvc "github.com/vilasle/metrics/internal/service/server"
+	"github.com/vilasle/metrics/internal/version"
 
 	"github.com/vilasle/metrics/internal/repository/memory"
 	"github.com/vilasle/metrics/internal/repository/memory/dumper"
@@ -104,8 +105,10 @@ func getConfig() runConfig {
 	}
 }
 
+var buildVersion, buildDate, buildCommit string
+
 func main() {
-	showVersion()
+	version.ShowVersion(buildVersion, buildDate, buildCommit)
 
 	logger.Init(os.Stdout, false)
 

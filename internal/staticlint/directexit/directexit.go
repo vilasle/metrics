@@ -1,12 +1,13 @@
-package staticlint
+package directexit
 
 import (
 	"go/ast"
 
 	"golang.org/x/tools/go/analysis"
 )
-// ErrDirectlyExitFromMain is a staticlint analyzer that checks for directly call os.Exit in main package
-var ErrDirectlyExitFromMain = &analysis.Analyzer{
+
+// DirectExitAnalyzer is a staticlint analyzer that checks for directly call os.Exit in main package
+var DirectExitAnalyzer = &analysis.Analyzer{
 	Name: "directlyExitFromMain",
 	Doc:  "check directly call os.Exit in main package",
 	Run:  run,

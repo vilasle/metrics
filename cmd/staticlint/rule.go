@@ -25,7 +25,6 @@ import (
 	"golang.org/x/tools/go/analysis/passes/httpresponse"
 	"golang.org/x/tools/go/analysis/passes/ifaceassert"
 	"golang.org/x/tools/go/analysis/passes/inspect"
-	"golang.org/x/tools/go/analysis/passes/loopclosure"
 	"golang.org/x/tools/go/analysis/passes/lostcancel"
 	"golang.org/x/tools/go/analysis/passes/nilfunc"
 	"golang.org/x/tools/go/analysis/passes/nilness"
@@ -82,7 +81,6 @@ func rules() []*analysis.Analyzer {
 		httpresponse.Analyzer,
 		ifaceassert.Analyzer,
 		inspect.Analyzer,
-		loopclosure.Analyzer,
 		lostcancel.Analyzer,
 		nilfunc.Analyzer,
 		nilness.Analyzer,
