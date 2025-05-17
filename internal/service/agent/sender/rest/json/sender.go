@@ -9,6 +9,8 @@ import (
 	"net/url"
 
 	"crypto/hmac"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 
 	"github.com/vilasle/metrics/internal/logger"
@@ -16,8 +18,31 @@ import (
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
 
-// HTTPJsonSender struct for preparing http request, transform metric to json string and set it as body  
-// can be add using hash sum, compressing.  
+type Option func(*HTTPJsonSender)
+
+func WithHashKey(hashSumKey string) Option {
+	return func(hs *HTTPJsonSender) {
+		hs.hashSumKey = hashSumKey
+	}
+}
+
+func WithRateLimit(limit int) Option {
+	return func(hs *HTTPJsonSender) {
+		hs.rateLimit = limit
+	}
+}
+
+func WithEncryption(key *rsa.PublicKey) Option {
+	return func(hs *HTTPJsonSender) {
+		if key == nil {
+			return
+		}
+		hs.publicKey = key
+	}
+}
+
+// HTTPJsonSender struct for preparing http request, transform metric to json string and set it as body
+// can be add using hash sum, compressing.
 type HTTPJsonSender struct {
 	*url.URL
 	httpClient
@@ -25,32 +50,39 @@ type HTTPJsonSender struct {
 	req        chan metric.Metric
 	resp       chan error
 	rateLimit  int
+	publicKey  *rsa.PublicKey
 }
 
 // NewHTTPJsonSender creates new HTTPJsonSender or returns error if addr is not valid
-func NewHTTPJsonSender(addr string, hashSumKey string, rateLimit int) (HTTPJsonSender, error) {
+func NewHTTPJsonSender(addr string, opts ...Option) (HTTPJsonSender, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
 		return HTTPJsonSender{}, err
 	}
-	s := HTTPJsonSender{
+	s := &HTTPJsonSender{
 		URL:        u,
 		httpClient: newClient(false),
-		hashSumKey: hashSumKey,
-		req:        make(chan metric.Metric, rateLimit),
-		resp:       make(chan error, rateLimit),
-		rateLimit:  rateLimit,
 	}
 
-	s.runWorkers(rateLimit)
+	for _, opt := range opts {
+		opt(s)
+	}
 
-	return s, nil
+	if s.rateLimit < 1 {
+		s.rateLimit = 1
+	}
+	s.req = make(chan metric.Metric, s.rateLimit)
+	s.resp = make(chan error, s.rateLimit)
+
+	s.runWorkers(s.rateLimit)
+
+	return *s, nil
 }
 
 // Send prepares request body and send metric to server
 func (s HTTPJsonSender) Send(value metric.Metric) error {
 	u := *s.URL
-	content, err := prepareBodyForReport(value)
+	content, err := s.prepareBodyForReport(value)
 	if err != nil {
 		return err
 	}
@@ -118,7 +150,7 @@ func (s HTTPJsonSender) SendWithLimit(value ...metric.Metric) error {
 // Send prepares request body as json array and send metric to server
 func (s HTTPJsonSender) SendBatch(values ...metric.Metric) error {
 	u := *s.URL
-	content, err := prepareBatchBodyForReport(values...)
+	content, err := s.prepareBatchBodyForReport(values...)
 	if err != nil {
 		return err
 	}
@@ -200,10 +232,26 @@ func (s HTTPJsonSender) addHashSumHeader(req *http.Request, pC *[]byte) error {
 	return nil
 }
 
-func prepareBodyForReport(value metric.Metric) ([]byte, error) {
-	return json.Marshal(value)
+func (s HTTPJsonSender) prepareBodyForReport(value metric.Metric) ([]byte, error) {
+	content, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.publicKey == nil {
+		return content, err
+	}
+	return rsa.EncryptOAEP(sha256.New(), rand.Reader, s.publicKey, content, []byte{})
 }
 
-func prepareBatchBodyForReport(value ...metric.Metric) ([]byte, error) {
-	return json.Marshal(value)
+func (s HTTPJsonSender) prepareBatchBodyForReport(value ...metric.Metric) ([]byte, error) {
+	content, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.publicKey == nil {
+		return content, err
+	}
+	return rsa.EncryptOAEP(sha256.New(), rand.Reader, s.publicKey, content, []byte{})
 }

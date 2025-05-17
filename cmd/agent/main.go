@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"io"
@@ -29,6 +32,7 @@ type runConfig struct {
 	rateLimit  int
 	endpoint   string
 	hashSumKey string
+	cryptoKey  string
 }
 
 func getConfig() runConfig {
@@ -37,6 +41,7 @@ func getConfig() runConfig {
 	pollSec := flag.Int("p", 2, "timeout(sec) for polling metrics")
 	hashSumKey := flag.String("k", "", "path to key for hash sum")
 	rateLimit := flag.Int("l", 1, "rate limit for sending metrics")
+	cryptoKey := flag.String("crypto-key", "", "path to public key")
 
 	flag.Parse()
 
@@ -86,12 +91,18 @@ func getConfig() runConfig {
 		}
 	}
 
+	envPublicKey := os.Getenv("CRYPTO_KEY")
+	if envPublicKey != "" {
+		cryptoKey = &envPublicKey
+	}
+
 	return runConfig{
 		endpoint:   *endpoint,
 		poll:       time.Second * time.Duration(*pollSec),
 		report:     time.Second * time.Duration(*reportSec),
 		hashSumKey: *hashSumKey,
 		rateLimit:  *rateLimit,
+		cryptoKey:  *cryptoKey,
 	}
 }
 
@@ -138,13 +149,22 @@ func main() {
 		logger.Error("can not read key from file", "file", conf.hashSumKey, "error", err)
 	}
 
+	publicKey, err := getPublicKeyFromFile(conf.cryptoKey)
+	if err != nil {
+		logger.Error("can not read public key from file", "file", conf.cryptoKey, "error", err)
+	}
+
 	logger.Debug("starting agent",
 		"address", updateAddress,
 		"pollInterval", conf.poll/time.Second,
 		"reportInterval", conf.report/time.Second,
 		"key", hashKey)
 
-	sender, err := json.NewHTTPJsonSender(updateAddress, hashKey, conf.rateLimit)
+	sender, err := json.NewHTTPJsonSender(updateAddress,
+		json.WithHashKey(hashKey),
+		json.WithRateLimit(conf.rateLimit),
+		json.WithEncryption(publicKey),
+	)
 	if err != nil {
 		logger.Fatal("can not create sender", "err", err)
 	}
@@ -181,6 +201,20 @@ func getHashKeyFromFile(path string) (string, error) {
 	} else {
 		return "", err
 	}
+}
+
+func getPublicKeyFromFile(path string) (*rsa.PublicKey, error) {
+	if path == "" {
+		return nil, nil
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	publicBlock, _ := pem.Decode(content)
+	return x509.ParsePKCS1PublicKey(publicBlock.Bytes)
 }
 
 func defaultGaugeMetrics() []string {

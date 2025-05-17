@@ -29,6 +29,9 @@ func (h httpClient) newRequest(method, url string, body []byte) (*http.Request, 
 		err     error
 	)
 
+	
+
+
 	if h.useCompression {
 		wrt := h.encodersPool.Get().(compress.CompressorWriter)
 
@@ -44,6 +47,8 @@ func (h httpClient) newRequest(method, url string, body []byte) (*http.Request, 
 	} else {
 		rd = bytes.NewReader(body)
 	}
+
+
 
 	if req, err = http.NewRequest(method, url, rd); err == nil {
 		for k, v := range headers {

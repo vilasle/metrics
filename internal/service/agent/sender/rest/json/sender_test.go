@@ -139,10 +139,10 @@ func TestHTTPSender_SendBatch(t *testing.T) {
 
 func BenchmarkHTTPSender_prepareBodyForReport(b *testing.B) {
 	m := metric.NewGaugeMetric("gauge1", 12.4523)
-
+	s := HTTPJsonSender{}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := prepareBodyForReport(m); err != nil {
+		if _, err := s.prepareBodyForReport(m); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -154,9 +154,10 @@ func BenchmarkHTTPSender_prepareBatchBodyForReport(b *testing.B) {
 		metrics[i] = metric.NewGaugeMetric("gauge1", rand.Float64())
 	}
 
+	s := HTTPJsonSender{}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := prepareBatchBodyForReport(metrics...); err != nil {
+		if _, err := s.prepareBatchBodyForReport(metrics...); err != nil {
 			b.Fatal(err)
 		}
 	}
