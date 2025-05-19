@@ -59,8 +59,24 @@ func (s *HTTPSender) Batch(objects ...metric.Metric) error {
 }
 
 func (s *HTTPSender) SendWithLimit(objects ...metric.Metric) error {
-	//TODO not implemented
-	panic("not implemented")
+	limit := s.rateLimit
+	errs := make([]error, 0)
+
+	for _, v := range objects {
+		s.reqCh <- v
+		limit--
+
+		if limit > 0 {
+			continue
+		}
+
+		for i := 0; i < s.rateLimit; i++ {
+			errs = append(errs, <-s.respCh)
+		}
+		limit = s.rateLimit
+	}
+
+	return errors.Join(errs...)
 }
 
 func (s *HTTPSender) send(req *http.Request) error {
