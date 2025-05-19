@@ -27,5 +27,6 @@ type Collector interface {
 type Sender interface {
 	Send(metric.Metric) error
 	SendBatch(...metric.Metric) error
+	Batch(...metric.Metric) error
 	SendWithLimit(...metric.Metric) error
 }
