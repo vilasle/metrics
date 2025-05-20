@@ -10,7 +10,6 @@ import (
 )
 
 func Test_WrappingBodyWriter(t *testing.T) {
-
 	object := []struct {
 		Name  string `json:"name"`
 		Value int    `json:"value"`
@@ -66,5 +65,5 @@ func Test_WrappingBodyWriter(t *testing.T) {
 	_ = actual
 
 	err = json.Write(object)
-
+	_ = err
 }

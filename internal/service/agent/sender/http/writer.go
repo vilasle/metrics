@@ -26,13 +26,16 @@ func WithCompressing() WriterOption {
 
 func WithEncryption(key *rsa.PublicKey) WriterOption {
 	return func(e *JSONWriter) {
+		if key == nil {
+			return
+		}
 		e.wrt = newEncryptWriter(e.wrt, key)
 	}
 }
 
 func WithCalculateHashSum(hashSumKey []byte) WriterOption {
 	return func(e *JSONWriter) {
-		if hashSumKey == nil || len(hashSumKey) == 0 {
+		if len(hashSumKey) == 0 {
 			return
 		}
 		e.wrt = newHashSumWriter(e, hashSumKey)

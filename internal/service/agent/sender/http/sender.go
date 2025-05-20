@@ -9,7 +9,6 @@ import (
 
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
-	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
 
 type RequestMaker interface {
@@ -58,36 +57,26 @@ func (s *HTTPSender) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *HTTPSender) Send(object metric.Metric) error {
-	req, err := s.maker.Make(object)
-	if err != nil {
-		return err
+func (s *HTTPSender) Send(objects ...metric.Metric) error {
+	if s.rateLimit > 0 {
+		return s.sendAsync(objects...)
 	}
-
-	if err := s.send(req); err != nil {
-		return errors.Join(err, fmt.Errorf("failed metric: %s", object))
-	}
-	return nil
+	return s.sendSync(objects...)
 }
 
-func (s *HTTPSender) SendBatch(objects ...metric.Metric) error {
-	return s.Batch(objects...)
-}
-
-func (s *HTTPSender) Batch(objects ...metric.Metric) error {
+func (s *HTTPSender) sendSync(objects ...metric.Metric) error {
 	req, err := s.maker.Make(objects...)
 	if err != nil {
 		return err
 	}
+
 	if err := s.send(req); err != nil {
 		return errors.Join(err, fmt.Errorf("failed metrics: %s", objects))
 	}
-
 	return nil
-
 }
 
-func (s *HTTPSender) SendWithLimit(objects ...metric.Metric) error {
+func (s *HTTPSender) sendAsync(objects ...metric.Metric) error {
 	limit := s.rateLimit
 	errs := make([]error, 0)
 
@@ -120,11 +109,11 @@ func (s *HTTPSender) send(req *http.Request) error {
 	switch statusCode {
 	case http.StatusNotFound:
 		err = errors.Join(
-			rest.ErrWrongMetricName,
+			ErrWrongMetricName,
 			fmt.Errorf("status code %d", statusCode))
 	case http.StatusBadRequest:
 		err = errors.Join(
-			rest.ErrWrongMetricTypeOrValue,
+			ErrWrongMetricTypeOrValue,
 			fmt.Errorf("status code %d", statusCode))
 	}
 
@@ -157,32 +146,3 @@ func (s *HTTPSender) background(ctx context.Context, wg *sync.WaitGroup) {
 		}
 	}
 }
-
-// func (s HTTPTextSender) Send(value metric.Metric) error {
-// 	u := *s.URL
-// 	addr := u.JoinPath(value.Type(), value.Name(), value.Value()).String()
-
-// 	req, err := http.NewRequest(http.MethodPost, addr, nil)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	req.Header.Set("Content-Type", "text/plain")
-// 	resp, err := s.client.Do(req)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	statusCode := resp.StatusCode
-
-// 	switch statusCode {
-// 	case http.StatusNotFound:
-
-// 		err = errors.Join(rest.ErrWrongMetricName, fmt.Errorf("status code %d", statusCode))
-// 	case http.StatusBadRequest:
-// 		err = errors.Join(rest.ErrWrongMetricTypeOrValue, fmt.Errorf("status code %d", statusCode))
-// 	}
-
-// 	return err
-// }

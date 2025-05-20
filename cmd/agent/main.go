@@ -5,21 +5,15 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
-	"math/rand"
-
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
 	"github.com/vilasle/metrics/internal/logger"
-	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/collector"
 	"github.com/vilasle/metrics/internal/service/agent/sender/http"
 	"github.com/vilasle/metrics/internal/version"
@@ -109,7 +103,6 @@ var buildVersion, buildDate, buildCommit string
 
 func main() {
 	version.ShowVersion(buildVersion, buildDate, buildCommit)
-	// showVersion()
 
 	logger.Init(os.Stdout, false)
 
@@ -117,76 +110,33 @@ func main() {
 
 	c := collector.NewRuntimeCollector()
 
-	metrics := defaultGaugeMetrics()
-	err := c.RegisterMetric(metrics...)
-
-	if err != nil {
+	if err := c.RegisterMetric(defaultGaugeMetrics()...); err != nil {
 		logger.Fatal("can to register metric", "error", err)
 	}
 
-	pollInterval := conf.poll
-	reportInterval := conf.report
+	registerEvents(c, incrementPollCounter, collectExtraMetrics, collectRandomValue)
 
-	c.RegisterEvent(incrementPollCounter)
-
-	c.RegisterEvent(func(c *collector.RuntimeCollector) {
-		gauge := c.GetGaugeValue("RandomValue")
-		gauge.SetValue(rand.Float64())
-
-		c.SetValue(gauge)
-
-	})
-	c.RegisterEvent(collectExtraMetrics)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
 
-	updateAddress := fmt.Sprintf("http://%s/update/", conf.endpoint)
-
-	hashKey, err := getHashKeyFromFile(conf.hashSumKey)
-	if err != nil {
-		logger.Error("can not read key from file", "file", conf.hashSumKey, "error", err)
-	}
-
-	// publicKey, err := getPublicKeyFromFile(conf.cryptoKey)
-	// if err != nil {
-	// 	logger.Error("can not read public key from file", "file", conf.cryptoKey, "error", err)
-	// }
+	addr := fmt.Sprintf("http://%s/update/", conf.endpoint)
 
 	logger.Debug("starting agent",
-		"address", updateAddress,
+		"address", addr,
 		"pollInterval", conf.poll/time.Second,
 		"reportInterval", conf.report/time.Second,
-		"key", hashKey)
-
-	// sender, err := json.NewHTTPJsonSender(updateAddress,
-	// 	json.WithHashKey(hashKey),
-	// 	json.WithRateLimit(conf.rateLimit),
-	// 	json.WithEncryption(publicKey),
-	// )
-
-	bodyWriter := http.NewJSONWriter(
-		http.WithCalculateHashSum(hashKey),
-		// http.WithEncryption(publicKey),
-		http.WithCompressing(),
 	)
 
-	maker, err := http.NewJSONRequestMaker(updateAddress, *bodyWriter)
-	if err != nil {
-		logger.Fatal("can not create request maker", "err", err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	sender := http.NewHTTPSender(maker, http.WithRateLimit(conf.rateLimit))
-	sender.Start(ctx)
-
+	sender, err := createSender(conf.hashSumKey, conf.cryptoKey, addr, conf.rateLimit)
 	if err != nil {
 		logger.Fatal("can not create sender", "err", err)
 	}
 
-	agent := newCollectorAgent(c, sender, delay{collect: pollInterval, report: reportInterval})
+	agent := newCollectorAgent(c, sender, newDelay(conf.poll, conf.report))
 
+	sender.Start(ctx)
 	go agent.run(ctx)
 
 	<-sigint
@@ -194,36 +144,6 @@ func main() {
 	cancel()
 
 	time.Sleep(time.Millisecond * 1500)
-}
-
-func incrementPollCounter(c *collector.RuntimeCollector) {
-	counter := c.GetCounterValue("PollCount")
-	if err := counter.AddValue(1); err != nil {
-		logger.Error("can not add value to counter", "err", err)
-	}
-	c.SetValue(counter)
-}
-
-func getHashKeyFromFile(path string) ([]byte, error) {
-	if content, err := os.ReadFile(path); err == nil {
-		return content, err
-	} else {
-		return nil, err
-	}
-}
-
-func getPublicKeyFromFile(path string) (*rsa.PublicKey, error) {
-	if path == "" {
-		return nil, nil
-	}
-
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	publicBlock, _ := pem.Decode(content)
-	return x509.ParsePKCS1PublicKey(publicBlock.Bytes)
 }
 
 func defaultGaugeMetrics() []string {
@@ -258,49 +178,59 @@ func defaultGaugeMetrics() []string {
 	}
 }
 
-func collectExtraMetrics(c *collector.RuntimeCollector) {
-	wg := &sync.WaitGroup{}
-
-	metricCh := make(chan metric.Metric, 2+runtime.NumCPU())
-
-	wg.Add(2)
-
-	go collectExtraMemMetrics(wg, metricCh)
-	go collectExtraCPUMetrics(wg, metricCh)
-
-	wg.Wait()
-
-	close(metricCh)
-
-	for m := range metricCh {
-		c.SetValue(m)
-	}
-
-}
-
-func collectExtraMemMetrics(wg *sync.WaitGroup, metricCh chan<- metric.Metric) {
-	defer wg.Done()
-
-	if v, err := mem.VirtualMemory(); err == nil {
-		metricCh <- metric.NewGaugeMetric("TotalMemory", float64(v.Total))
-		metricCh <- metric.NewGaugeMetric("FreeMemory", float64(v.Free))
-	} else {
-		logger.Error("collection memory's metric was failed", "err", err)
+func registerEvents(c *collector.RuntimeCollector, events ...func(*collector.RuntimeCollector)) {
+	for _, event := range events {
+		c.RegisterEvent(event)
 	}
 }
 
-func collectExtraCPUMetrics(wg *sync.WaitGroup, metricCh chan<- metric.Metric) {
-	defer wg.Done()
-
-	result, err := cpu.Percent((time.Second * 3), true)
+func createSender(hashPath, cryptoKeyPath, addr string, rateLimit int) (*http.HTTPSender, error) {
+	hashKey, err := getHashKeyFromFile(hashPath)
 	if err != nil {
-		logger.Error("collection cpu usage was failed", "err", err)
-		return
+		logger.Error("can not read key from file", "file", hashPath, "error", err)
 	}
 
-	format := "CPUutilization%d"
-	for i, v := range result {
-		m := fmt.Sprintf(format, i)
-		metricCh <- metric.NewGaugeMetric(m, v)
+	publicKey, err := getPublicKeyFromFile(cryptoKeyPath)
+	if err != nil {
+		logger.Error("can not read public key from file", "file", cryptoKeyPath, "error", err)
 	}
+
+	bodyWriter := http.NewJSONWriter(
+		http.WithCalculateHashSum(hashKey),
+		http.WithEncryption(publicKey),
+		http.WithCompressing(),
+	)
+
+	maker, err := http.NewJSONRequestMaker(addr, *bodyWriter)
+	if err != nil {
+		return nil, errors.Join(err, errors.New("can not create request maker"))
+	}
+
+	return http.NewHTTPSender(
+		maker,
+		http.WithRateLimit(rateLimit),
+	), nil
+
+}
+
+func getHashKeyFromFile(path string) ([]byte, error) {
+	if content, err := os.ReadFile(path); err == nil {
+		return content, err
+	} else {
+		return nil, err
+	}
+}
+
+func getPublicKeyFromFile(path string) (*rsa.PublicKey, error) {
+	if path == "" {
+		return nil, nil
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	publicBlock, _ := pem.Decode(content)
+	return x509.ParsePKCS1PublicKey(publicBlock.Bytes)
 }
