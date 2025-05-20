@@ -52,7 +52,11 @@ func Test_WrappingBodyWriter(t *testing.T) {
 	key, err := x509.ParsePKCS1PublicKey(publicBlock.Bytes)
 	require.NoError(t, err)
 
-	json := NewJSONWriter(WithEncryption(key), WithCompressing())
+	hashKey := []byte("some hash key")
+	json := NewJSONWriter(
+		WithCalculateHashSum(hashKey),
+		WithEncryption(key),
+		WithCompressing())
 
 	err = json.Write(object)
 	require.NoError(t, err)

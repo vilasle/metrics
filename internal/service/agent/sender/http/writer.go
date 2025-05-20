@@ -3,9 +3,11 @@ package http
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"sync"
@@ -25,6 +27,15 @@ func WithCompressing() WriterOption {
 func WithEncryption(key *rsa.PublicKey) WriterOption {
 	return func(e *JSONWriter) {
 		e.wrt = newEncryptWriter(e.wrt, key)
+	}
+}
+
+func WithCalculateHashSum(hashSumKey []byte) WriterOption {
+	return func(e *JSONWriter) {
+		if hashSumKey == nil || len(hashSumKey) == 0 {
+			return
+		}
+		e.wrt = newHashSumWriter(e, hashSumKey)
 	}
 }
 
@@ -115,4 +126,33 @@ func (e encryptWriter) Write(d []byte) (int, error) {
 		return 0, err
 	}
 	return e.wrt.Write(content)
+}
+
+type hashSumWriter struct {
+	key []byte
+	wrt io.Writer
+	jw  *JSONWriter
+}
+
+func newHashSumWriter(jw *JSONWriter, key []byte) *hashSumWriter {
+	return &hashSumWriter{
+		key: key,
+		wrt: jw.wrt,
+		jw:  jw,
+	}
+}
+
+func (e hashSumWriter) Write(d []byte) (int, error) {
+
+	w := hmac.New(sha256.New, []byte(e.key))
+	if _, err := w.Write(d); err != nil {
+		return 0, err
+	}
+
+	srcHash := w.Sum(nil)
+	hash := base64.URLEncoding.EncodeToString(srcHash)
+
+	e.jw.headers["HashSHA256"] = hash
+
+	return e.wrt.Write(d)
 }

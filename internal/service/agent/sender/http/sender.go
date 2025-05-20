@@ -1,10 +1,13 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 
+	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest"
 )
@@ -12,6 +15,8 @@ import (
 type RequestMaker interface {
 	Make(objects ...metric.Metric) (*http.Request, error)
 }
+
+type SenderOption func(*HTTPSender)
 
 type HTTPSender struct {
 	maker  RequestMaker
@@ -22,11 +27,35 @@ type HTTPSender struct {
 	respCh    chan error
 }
 
-func NewHTTPSender(rm RequestMaker) HTTPSender {
-	return HTTPSender{
+func WithRateLimit(limit int) SenderOption {
+	return func(e *HTTPSender) {
+		e.rateLimit = limit
+		e.reqCh = make(chan metric.Metric, limit)
+		e.respCh = make(chan error, limit)
+	}
+}
+
+func NewHTTPSender(rm RequestMaker, opts ...SenderOption) *HTTPSender {
+	s := &HTTPSender{
 		maker:  rm,
 		client: http.Client{},
 	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
+}
+
+func (s *HTTPSender) Start(ctx context.Context) error {
+	if s.rateLimit == 0 {
+		return fmt.Errorf("does not define rate limit")
+	}
+
+	go s.startWorkers(ctx)
+
+	return nil
 }
 
 func (s *HTTPSender) Send(object metric.Metric) error {
@@ -101,6 +130,32 @@ func (s *HTTPSender) send(req *http.Request) error {
 
 	return err
 
+}
+
+func (s *HTTPSender) startWorkers(ctx context.Context) {
+	wg := &sync.WaitGroup{}
+
+	wg.Add(s.rateLimit)
+
+	for qty := s.rateLimit; qty > 0; qty-- {
+		go s.background(ctx, wg)
+	}
+
+	wg.Wait()
+}
+
+func (s *HTTPSender) background(ctx context.Context, wg *sync.WaitGroup) {
+	logger.Info("run worker")
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case m := <-s.reqCh:
+			logger.Info("got metrics", "metric", m)
+			s.respCh <- s.Send(m)
+		}
+	}
 }
 
 // func (s HTTPTextSender) Send(value metric.Metric) error {

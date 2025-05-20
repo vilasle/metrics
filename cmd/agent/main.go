@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"runtime"
@@ -22,7 +21,7 @@ import (
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/collector"
-	"github.com/vilasle/metrics/internal/service/agent/sender/rest/json"
+	"github.com/vilasle/metrics/internal/service/agent/sender/http"
 	"github.com/vilasle/metrics/internal/version"
 )
 
@@ -149,10 +148,10 @@ func main() {
 		logger.Error("can not read key from file", "file", conf.hashSumKey, "error", err)
 	}
 
-	publicKey, err := getPublicKeyFromFile(conf.cryptoKey)
-	if err != nil {
-		logger.Error("can not read public key from file", "file", conf.cryptoKey, "error", err)
-	}
+	// publicKey, err := getPublicKeyFromFile(conf.cryptoKey)
+	// if err != nil {
+	// 	logger.Error("can not read public key from file", "file", conf.cryptoKey, "error", err)
+	// }
 
 	logger.Debug("starting agent",
 		"address", updateAddress,
@@ -160,18 +159,34 @@ func main() {
 		"reportInterval", conf.report/time.Second,
 		"key", hashKey)
 
-	sender, err := json.NewHTTPJsonSender(updateAddress,
-		json.WithHashKey(hashKey),
-		json.WithRateLimit(conf.rateLimit),
-		json.WithEncryption(publicKey),
+	// sender, err := json.NewHTTPJsonSender(updateAddress,
+	// 	json.WithHashKey(hashKey),
+	// 	json.WithRateLimit(conf.rateLimit),
+	// 	json.WithEncryption(publicKey),
+	// )
+
+	bodyWriter := http.NewJSONWriter(
+		http.WithCalculateHashSum(hashKey),
+		// http.WithEncryption(publicKey),
+		http.WithCompressing(),
 	)
+
+	maker, err := http.NewJSONRequestMaker(updateAddress, *bodyWriter)
+	if err != nil {
+		logger.Fatal("can not create request maker", "err", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	sender := http.NewHTTPSender(maker, http.WithRateLimit(conf.rateLimit))
+	sender.Start(ctx)
+
 	if err != nil {
 		logger.Fatal("can not create sender", "err", err)
 	}
 
 	agent := newCollectorAgent(c, sender, delay{collect: pollInterval, report: reportInterval})
 
-	ctx, cancel := context.WithCancel(context.Background())
 	go agent.run(ctx)
 
 	<-sigint
@@ -189,17 +204,11 @@ func incrementPollCounter(c *collector.RuntimeCollector) {
 	c.SetValue(counter)
 }
 
-func getHashKeyFromFile(path string) (string, error) {
-	fd, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer fd.Close()
-
-	if content, err := io.ReadAll(fd); err == nil {
-		return string(content), err
+func getHashKeyFromFile(path string) ([]byte, error) {
+	if content, err := os.ReadFile(path); err == nil {
+		return content, err
 	} else {
-		return "", err
+		return nil, err
 	}
 }
 
