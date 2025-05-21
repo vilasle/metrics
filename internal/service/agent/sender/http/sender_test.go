@@ -1,69 +1,31 @@
 package http
 
 import (
-	"crypto/x509"
-	"encoding/pem"
-	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func Test_WrappingBodyWriter(t *testing.T) {
-	object := []struct {
-		Name  string `json:"name"`
-		Value int    `json:"value"`
+func Test_hashSumWriter(t *testing.T) {
+	key := []byte("KeyForHashSum")
+	j := NewJSONWriter(WithCalculateHashSum(key))
+
+	ob := struct {
+		name  string
+		value int
 	}{
-		{
-			Name:  "SomeName",
-			Value: 123456,
-		},
-		{
-			Name:  "SomeName",
-			Value: 123456,
-		},
-		{
-			Name:  "SomeName",
-			Value: 123456,
-		},
-		{
-			Name:  "SomeName",
-			Value: 123456,
-		},
-		{
-			Name:  "SomeName",
-			Value: 123456,
-		},
-		{
-			Name:  "SomeName",
-			Value: 123456,
-		},
-		{
-			Name:  "SomeName",
-			Value: 123456,
-		},
+		name:  "some name",
+		value: 54321,
 	}
 
-	content, err := os.ReadFile("metric.pub")
+	expected := "6xjcKlVAfsIm0CmaPG54lCWamTjggHBgy1pnYwADH44="
+	err := j.Write(ob)
 	require.NoError(t, err)
 
-	publicBlock, _ := pem.Decode(content)
-	key, err := x509.ParsePKCS1PublicKey(publicBlock.Bytes)
-	require.NoError(t, err)
+	
+	hash, ok := j.headers["HashSHA256"]
+	require.Equal(t, true, ok)
 
-	hashKey := []byte("some hash key")
-	json := NewJSONWriter(
-		WithCalculateHashSum(hashKey),
-		WithEncryption(key),
-		WithCompressing())
-
-	err = json.Write(object)
-	require.NoError(t, err)
-
-	actual := json.Bytes()
-
-	_ = actual
-
-	err = json.Write(object)
-	_ = err
+	assert.Equal(t, expected, hash)
 }

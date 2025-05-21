@@ -49,11 +49,8 @@ func handleUpdateAsTextPlain(svc service.MetricService, r *http.Request) Respons
 
 func handleUpdateAsTextJSON(svc service.MetricService, r *http.Request) Response {
 	defer r.Body.Close()
-	if r.Body == http.NoBody {
-		return newTextResponse(emptyBody(), ErrEmptyRequestBody)
-	}
 	content, err := io.ReadAll(r.Body)
-	if err != nil {
+	if err != nil || len(content) == 0 {
 		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
@@ -118,11 +115,8 @@ func updateMetrics(svc service.MetricService, r *http.Request) Response {
 
 func handleUpdateMetricsAsBatch(svc service.MetricService, r *http.Request) Response {
 	defer r.Body.Close()
-	if r.Body == http.NoBody {
-		return newTextResponse(emptyBody(), ErrEmptyRequestBody)
-	}
 	content, err := io.ReadAll(r.Body)
-	if err != nil {
+	if err != nil || len(content) == 0 {
 		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
