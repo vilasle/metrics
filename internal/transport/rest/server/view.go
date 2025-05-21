@@ -89,13 +89,11 @@ func handleDisplayMetricAsTextPlain(svc service.MetricService, r *http.Request) 
 }
 
 func handleDisplayMetricAsTextJSON(svc service.MetricService, r *http.Request) Response {
-	defer r.Body.Close()
-	if r.Body == http.NoBody {
-		return newTextResponse(emptyBody(), ErrEmptyRequestBody)
-	}
 	content, err := io.ReadAll(r.Body)
 
-	if err != nil {
+	r.Body.Close()
+
+	if err != nil || len(content) == 0 {
 		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
