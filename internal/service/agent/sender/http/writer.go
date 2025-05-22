@@ -146,7 +146,6 @@ func newHashSumWriter(jw *JSONWriter, key []byte) *hashSumWriter {
 }
 
 func (e hashSumWriter) Write(d []byte) (int, error) {
-
 	w := hmac.New(sha256.New, []byte(e.key))
 	if _, err := w.Write(d); err != nil {
 		return 0, err

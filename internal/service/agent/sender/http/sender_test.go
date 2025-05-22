@@ -1,31 +1,25 @@
 package http
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vilasle/metrics/internal/metric"
 )
 
-func Test_hashSumWriter(t *testing.T) {
-	key := []byte("KeyForHashSum")
-	j := NewJSONWriter(WithCalculateHashSum(key))
+func TestNewHTTPSender(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
 
-	ob := struct {
-		name  string
-		value int
-	}{
-		name:  "some name",
-		value: 54321,
-	}
-
-	expected := "6xjcKlVAfsIm0CmaPG54lCWamTjggHBgy1pnYwADH44="
-	err := j.Write(ob)
+	tm, err := NewTextRequestMaker(server.URL)
 	require.NoError(t, err)
 
-	
-	hash, ok := j.headers["HashSHA256"]
-	require.Equal(t, true, ok)
+	sender := NewHTTPSender(tm)
 
-	assert.Equal(t, expected, hash)
+	err = sender.Send(metric.NewCounterMetric("test", 1))
+	require.NoError(t, err)
 }

@@ -11,10 +11,10 @@ import (
 
 type JSONRequestMaker struct {
 	addr          *url.URL
-	contentWriter JSONWriter
+	contentWriter *JSONWriter
 }
 
-func NewJSONRequestMaker(addr string, writer JSONWriter) (*JSONRequestMaker, error) {
+func NewJSONRequestMaker(addr string, writer *JSONWriter) (*JSONRequestMaker, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
 		return nil, err

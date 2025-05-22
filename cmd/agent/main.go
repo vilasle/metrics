@@ -201,7 +201,7 @@ func createSender(hashPath, cryptoKeyPath, addr string, rateLimit int) (*http.HT
 		http.WithCompressing(),
 	)
 
-	maker, err := http.NewJSONRequestMaker(addr, *bodyWriter)
+	maker, err := http.NewJSONRequestMaker(addr, bodyWriter)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("can not create request maker"))
 	}
