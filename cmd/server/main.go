@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
+	"encoding/pem"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,12 +31,13 @@ import (
 )
 
 type runConfig struct {
-	address      string
-	dumpFilePath string
-	dumpInterval int64
-	restore      bool
-	databaseDSN  string
-	hashSumKey   string
+	address        string
+	dumpFilePath   string
+	dumpInterval   int64
+	restore        bool
+	databaseDSN    string
+	hashSumKey     string
+	privateKeyPath string
 }
 
 func (c runConfig) String() string {
@@ -58,6 +61,7 @@ func getConfig() runConfig {
 	restore := flag.Bool("r", true, "need to restore metrics from dump")
 	dbDSN := flag.String("d", "", "database dns e.g. 'postgres://user:password@host:port/database?option=value'")
 	hashSumKey := flag.String("k", "", "key for hash sum")
+	cryptoKey := flag.String("crypto-key", "", "path to private key")
 
 	flag.Parse()
 
@@ -95,13 +99,19 @@ func getConfig() runConfig {
 		*hashSumKey = envHashSumKey
 	}
 
+	envCryptoKey := os.Getenv("CRYPTO_KEY")
+	if envCryptoKey != "" {
+		*cryptoKey = envCryptoKey
+	}
+
 	return runConfig{
-		address:      *address,
-		restore:      *restore,
-		dumpFilePath: *dumpFile,
-		dumpInterval: *storageInternal,
-		databaseDSN:  *dbDSN,
-		hashSumKey:   *hashSumKey,
+		address:        *address,
+		restore:        *restore,
+		dumpFilePath:   *dumpFile,
+		dumpInterval:   *storageInternal,
+		databaseDSN:    *dbDSN,
+		hashSumKey:     *hashSumKey,
+		privateKeyPath: *cryptoKey,
 	}
 }
 
@@ -224,19 +234,28 @@ func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRe
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
+	hashKey, err := getHashKeyFromFile(config.hashSumKey)
+	if err != nil {
+		logger.Error("can not get hash key from file", "error", err)
+	}
+
+	key, err := getPrivateKeyFromFile(config.privateKeyPath)
+	if err != nil {
+		logger.Error("can not get private key from file", "error", err)
+	}
+
+	contentUnpackers := mdw.NewUnpackerChain(
+		mdw.CheckHashSum(hashKey),
+		mdw.DecryptContent(key),
+		mdw.DecompressContent(),
+	)
+
 	middlewares := make([]func(http.Handler) http.Handler, 0, 4)
 	middlewares = append(middlewares,
 		mdw.WithLogger(),
 		mdw.Compress("application/json", "text/html"),
-		mdw.WithUnwrapBody(),
+		mdw.WithUnwrapBody(contentUnpackers),
 	)
-
-	hash, err := getHashKeyFromFile(config.hashSumKey)
-	if err != nil {
-		logger.Error("can not get hash key from file", "error", err)
-	} else {
-		middlewares = append(middlewares, mdw.CalculateHashSum(hash), mdw.HashKey(hash))
-	}
 
 	server := rest.NewHTTPServer(config.address, middlewares...)
 
@@ -256,16 +275,20 @@ func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 	srv.Register("/update/{type}/{name}/{value}", rest.UpdateMetric(svc), http.MethodPost)
 }
 
-func getHashKeyFromFile(path string) (string, error) {
-	fd, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer fd.Close()
+func getHashKeyFromFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
 
-	if content, err := io.ReadAll(fd); err == nil {
-		return string(content), err
-	} else {
-		return "", err
+func getPrivateKeyFromFile(path string) (*rsa.PrivateKey, error) {
+	if path == "" {
+		return nil, nil
 	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	privateBlock, _ := pem.Decode(content)
+	return x509.ParsePKCS1PrivateKey(privateBlock.Bytes)
 }

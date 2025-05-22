@@ -105,7 +105,7 @@ func (cw *compressedResponseWriter) Close() error {
 	return err
 }
 
-func WithUnwrapBody() func(h http.Handler) http.Handler {
+func WithUnwrapBody(unpacker UnpackerChain) func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			content, err := io.ReadAll(r.Body)
@@ -114,9 +114,13 @@ func WithUnwrapBody() func(h http.Handler) http.Handler {
 				return
 			}
 
-			_ = content
+			srcContent, err := unpacker.Unpack(content, r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 
-			r.Body = io.NopCloser(bytes.NewBuffer([]byte("changes body")))
+			r.Body = io.NopCloser(bytes.NewBuffer(srcContent))
 
 			h.ServeHTTP(w, r)
 		})
