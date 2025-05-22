@@ -225,7 +225,11 @@ func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRe
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
 	middlewares := make([]func(http.Handler) http.Handler, 0, 4)
-	middlewares = append(middlewares, mdw.WithLogger(), mdw.Compress("application/json", "text/html"))
+	middlewares = append(middlewares,
+		mdw.WithLogger(),
+		mdw.Compress("application/json", "text/html"),
+		mdw.WithUnwrapBody(),
+	)
 
 	hash, err := getHashKeyFromFile(config.hashSumKey)
 	if err != nil {

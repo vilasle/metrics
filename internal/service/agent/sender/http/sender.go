@@ -142,7 +142,7 @@ func (s *HTTPSender) background(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		case m := <-s.reqCh:
 			logger.Info("got metrics", "metric", m)
-			s.respCh <- s.Send(m)
+			s.respCh <- s.sendSync(m)
 		}
 	}
 }
