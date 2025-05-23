@@ -47,14 +47,8 @@ func NewHTTPSender(rm RequestMaker, opts ...SenderOption) *HTTPSender {
 	return s
 }
 
-func (s *HTTPSender) Start(ctx context.Context) error {
-	if s.rateLimit == 0 {
-		return fmt.Errorf("does not define rate limit")
-	}
-
-	go s.startWorkers(ctx)
-
-	return nil
+func (s *HTTPSender) Start(ctx context.Context, wg *sync.WaitGroup) {
+	go s.startWorkers(ctx, wg)
 }
 
 func (s *HTTPSender) Send(objects ...metric.Metric) error {
@@ -121,16 +115,12 @@ func (s *HTTPSender) send(req *http.Request) error {
 
 }
 
-func (s *HTTPSender) startWorkers(ctx context.Context) {
-	wg := &sync.WaitGroup{}
-
+func (s *HTTPSender) startWorkers(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(s.rateLimit)
 
 	for qty := s.rateLimit; qty > 0; qty-- {
 		go s.background(ctx, wg)
 	}
-
-	wg.Wait()
 }
 
 func (s *HTTPSender) background(ctx context.Context, wg *sync.WaitGroup) {
@@ -139,6 +129,9 @@ func (s *HTTPSender) background(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-ctx.Done():
+			for r := range s.reqCh {
+				s.respCh <- s.sendSync(r)
+			}
 			return
 		case m := <-s.reqCh:
 			logger.Info("got metrics", "metric", m)

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/vilasle/metrics/internal/logger"
@@ -37,7 +39,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	sigint := make(chan os.Signal, 1)
-	signal.Notify(sigint, os.Interrupt)
+	signal.Notify(sigint, os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM)
 
 	addr := fmt.Sprintf("http://%s/update/", conf.endpoint)
 
@@ -54,14 +56,15 @@ func main() {
 
 	agent := newCollectorAgent(c, sender, newDelay(conf.poll, conf.report))
 
-	sender.Start(ctx)
-	go agent.run(ctx)
+	wg := &sync.WaitGroup{}
+	sender.Start(ctx, wg)
+	go agent.run(ctx, wg)
 
 	<-sigint
 	logger.Info("stopping agent")
 	cancel()
 
-	time.Sleep(time.Millisecond * 1500)
+	wg.Wait()
 }
 
 func defaultGaugeMetrics() []string {

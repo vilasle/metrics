@@ -45,19 +45,15 @@ func newCollectorAgent(collector agent.Collector, sender agent.Sender, delaySett
 	}
 }
 
-func (a collectorAgent) run(ctx context.Context) {
-	newCtx, cancel := context.WithCancel(ctx)
-
-	go a.collect(newCtx)
-	go a.report(newCtx)
-
-	<-ctx.Done()
-	logger.Debug("got cancel from main")
-	cancel()
+func (a collectorAgent) run(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(2)
+	go a.collect(ctx, wg)
+	go a.report(ctx, wg)
 }
 
-func (a collectorAgent) collect(ctx context.Context) {
+func (a collectorAgent) collect(ctx context.Context, wg *sync.WaitGroup) {
 	t := time.NewTicker(a.collectDelay)
+	defer wg.Done()
 	defer t.Stop()
 	for {
 		select {
@@ -70,15 +66,15 @@ func (a collectorAgent) collect(ctx context.Context) {
 	}
 }
 
-func (a collectorAgent) report(ctx context.Context) {
+func (a collectorAgent) report(ctx context.Context, wg *sync.WaitGroup) {
 	t := time.NewTicker(a.reportDelay)
-	defer t.Stop()
+	defer wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Debug("reporter got cancel signal")
 			logger.Debug("send collected metrics")
-
+			t.Stop()
 			a.handleReport()
 			return
 		case <-t.C:

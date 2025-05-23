@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/vilasle/metrics/internal/logger"
@@ -100,7 +101,7 @@ func shutdown(srv *rest.HTTPServer) {
 
 func subscribeToStopSignals() chan os.Signal {
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt)
+	signal.Notify(stop, os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM)
 	return stop
 }
 
