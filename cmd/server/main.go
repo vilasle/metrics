@@ -223,7 +223,7 @@ func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.Cance
 
 	contentUnpackers := mdw.NewUnpackerChain(
 		mdw.CheckHashSum(hashKey),
-		mdw.DecryptContent(key),
+		mdw.DecryptContent(key, "update", "updates"),
 		mdw.DecompressContent("gzip"),
 	)
 

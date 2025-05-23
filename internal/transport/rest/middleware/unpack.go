@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/vilasle/metrics/internal/logger"
 )
@@ -40,6 +41,10 @@ func CheckHashSum(key []byte) UnpackFunc {
 		}
 
 		sum := req.Header.Get("HashSHA256")
+		//nothing key for getting hash sum
+		if sum == "" {
+			return b, nil
+		}
 
 		reqHash, err := base64.URLEncoding.DecodeString(sum)
 		if err != nil {
@@ -75,11 +80,40 @@ func getHashSumWithKey(b []byte, key []byte) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-func DecryptContent(key *rsa.PrivateKey) UnpackFunc {
-	return func(b []byte, _ *http.Request) ([]byte, error) {
+func DecryptContent(key *rsa.PrivateKey, path ...string) UnpackFunc {
+	encryptedPath := make(map[string]struct{}, len(path))
+	for i := range path {
+		rs := path[i]
+
+		if !strings.HasPrefix(rs, "/") {
+			rs = "/" + rs
+		}
+
+		if !strings.HasSuffix(rs, "/") {
+			rs = rs + "/"
+		}
+
+		encryptedPath[rs] = struct{}{}
+	}
+
+	return func(b []byte, req *http.Request) ([]byte, error) {
 		if key == nil {
 			return b, nil
 		}
+
+		path := req.RequestURI
+		
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+		if !strings.HasSuffix(path, "/") {
+			path = path + "/"
+		}
+
+		if _, ok := encryptedPath[path]; !ok {
+			return b, nil
+		}
+
 		return rsa.DecryptOAEP(sha256.New(), rand.Reader, key, b, []byte{})
 	}
 }
