@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,33 +19,38 @@ func Test_getConfig(t *testing.T) {
 		{
 			name: "there cli args and config file, and there conflicts",
 			cliArgs: []string{
-				"-r", "10",
-				"-k", "key",
-				"-l", "1",
-				"-crypto-key", "crypto-key",
-				"-c", "agent1234.json",
+				"-a", "localhost:17000",
+				"-c", "server_custom.json",
+				"-k", "hashSum.key",
+				"-crypto-key", "private.key",
+				"-r", "true",
 			},
 			jsonConfigContent: []byte(
 				`{
-				   "address": "localhost:8090",
-				   "report_interval": "1s",
-				   "poll_interval": "1s",
-				   "crypto_key": "/path/to/key.pem"
+					"address": "localhost:70",
+					"restore": "false"
+					"store_interval": 130,
+					"store_file": "storage.file",
+					"database_dsn": "postgres://user:password@localhost:5432/database"
+					"crypto_key": "crypto.pem"
 				}`,
 			),
 			envvars: map[string]string{
-				"ADDRESS":         "localhost:9000",
-				"REPORT_INTERVAL": "100",
-				"CONFIG":          "agent.json",
-				"CRYPTO_KEY":      "key.pem",
+				"ADDRESS":           "localhost:10000",
+				"DATABASE_DSN":      "postgres://user:password@localhost:5432/db",
+				"STORAGE_INTERNAL":  "5000",
+				"CONFIG":            "server.json",
+				"KEY":               "hash.key",
+				"FILE_STORAGE_PATH": "dump_file",
 			},
 			want: runConfig{
-				endpoint:   "localhost:9000",
-				report:     time.Second * 100,
-				poll:       time.Second,
-				rateLimit:  1,
-				hashSumKey: "key",
-				cryptoKey:  "key.pem",
+				address:        "localhost:10000",
+				dumpFilePath:   "dump_file",
+				dumpInterval:   5000,
+				restore:        true,
+				databaseDSN:    "postgres://user:password@localhost:5432/db",
+				hashSumKey:     "hash.key",
+				privateKeyPath: "private.key",
 			},
 		},
 	}
@@ -54,12 +58,12 @@ func Test_getConfig(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.jsonConfigContent != nil {
-				fd, err := os.OpenFile("agent.json", os.O_RDWR|os.O_CREATE, 0666)
+				fd, err := os.OpenFile("server.json", os.O_RDWR|os.O_CREATE, 0666)
 				require.NoError(t, err)
 				_, err = fd.Write(tt.jsonConfigContent)
 				require.NoError(t, err)
 				fd.Close()
-				defer os.Remove("agent.json")
+				defer os.Remove("server.json")
 
 			}
 
@@ -72,7 +76,6 @@ func Test_getConfig(t *testing.T) {
 
 			got := getConfig()
 			assert.Equal(t, tt.want, got)
-			
 		})
 	}
 

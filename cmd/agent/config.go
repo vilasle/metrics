@@ -49,14 +49,17 @@ func getConfig() runConfig {
 	hashSumKey := flag.String("k", "", "path to key for hash sum")
 	rateLimit := flag.Int("l", 0, "rate limit for sending metrics")
 	cryptoKey := flag.String("crypto-key", "", "path to public key")
-	configPath := flag.String("config", "", "path to json config file")
+	
+	var configPath string
+	flag.StringVar(&configPath, "config", "", "path to json config file")
+	flag.StringVar(&configPath, "c", "", "path to json config file")
 
 	flag.Parse()
 
-	externalConfig, err := readConfig(cmp.Or(os.Getenv("CONFIG"), *configPath))
+	externalConfig, err := readConfig(cmp.Or(os.Getenv("CONFIG"), configPath))
 	if err != nil {
 		logger.Warn("can not read config file, will use default values",
-			"path", *configPath,
+			"path", configPath,
 			"error", err)
 	}
 

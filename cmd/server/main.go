@@ -1,19 +1,14 @@
 package main
 
 import (
-	"cmp"
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql"
 	"encoding/pem"
-	"flag"
-	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"strconv"
 	"time"
 
 	"github.com/vilasle/metrics/internal/logger"
@@ -30,67 +25,6 @@ import (
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
-
-type runConfig struct {
-	address        string
-	dumpFilePath   string
-	dumpInterval   int64
-	restore        bool
-	databaseDSN    string
-	hashSumKey     string
-	privateKeyPath string
-}
-
-func (c runConfig) String() string {
-	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDSN: %s; key for hash sum: %s",
-		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDSN, c.hashSumKey)
-}
-
-func (c runConfig) DNS() (string, error) {
-	link, err := url.Parse(c.databaseDSN)
-	if err != nil {
-		return "", err
-	}
-	_ = link
-	return c.databaseDSN, nil
-}
-
-func getConfig() runConfig {
-	address := flag.String("a", "localhost:8080", "address for server")
-	storageInternal := flag.Int64("i", 300, "dumping timeout")
-	dumpFile := flag.String("f", "a.metrics", "dump file")
-	restore := flag.Bool("r", true, "need to restore metrics from dump")
-	dbDSN := flag.String("d", "", "database dns e.g. 'postgres://user:password@host:port/database?option=value'")
-	hashSumKey := flag.String("k", "", "key for hash sum")
-	cryptoKey := flag.String("crypto-key", "", "path to private key")
-
-	flag.Parse()
-
-	config := runConfig{
-		dumpInterval: *storageInternal,
-		restore:      *restore,
-	}
-
-	config.address = cmp.Or(os.Getenv("ADDRESS"), *address)
-	config.dumpFilePath = cmp.Or(os.Getenv("FILE_STORAGE_PATH"), *dumpFile)
-	config.hashSumKey = cmp.Or(os.Getenv("HASH_SUM_KEY"), *hashSumKey)
-	config.privateKeyPath = cmp.Or(os.Getenv("CRYPTO_KEY"), *cryptoKey)
-	config.databaseDSN = cmp.Or(os.Getenv("DATABASE_DSN"), *dbDSN)
-
-	if envInternal := os.Getenv("STORAGE_INTERNAL"); envInternal != "" {
-		if v, err := strconv.ParseInt(envInternal, 10, 64); err != nil {
-			config.dumpInterval = v
-		}
-	}
-
-	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
-		if v, err := strconv.ParseBool(envRestore); err != nil {
-			config.restore = v
-		}
-	}
-
-	return config
-}
 
 var buildVersion, buildDate, buildCommit string
 
