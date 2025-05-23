@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
@@ -65,54 +66,30 @@ func getConfig() runConfig {
 
 	flag.Parse()
 
-	envAddress := os.Getenv("ADDRESS")
-	if envAddress != "" {
-		*address = envAddress
+	config := runConfig{
+		dumpInterval: *storageInternal,
+		restore:      *restore,
 	}
 
-	envInternal := os.Getenv("STORAGE_INTERNAL")
-	if envInternal != "" {
+	config.address = cmp.Or(os.Getenv("ADDRESS"), *address)
+	config.dumpFilePath = cmp.Or(os.Getenv("FILE_STORAGE_PATH"), *dumpFile)
+	config.hashSumKey = cmp.Or(os.Getenv("HASH_SUM_KEY"), *hashSumKey)
+	config.privateKeyPath = cmp.Or(os.Getenv("CRYPTO_KEY"), *cryptoKey)
+	config.databaseDSN = cmp.Or(os.Getenv("DATABASE_DSN"), *dbDSN)
+
+	if envInternal := os.Getenv("STORAGE_INTERNAL"); envInternal != "" {
 		if v, err := strconv.ParseInt(envInternal, 10, 64); err != nil {
-			*storageInternal = v
+			config.dumpInterval = v
 		}
 	}
 
-	envDumpFile := os.Getenv("FILE_STORAGE_PATH")
-	if envDumpFile != "" {
-		*dumpFile = envDumpFile
-	}
-
-	envRestore := os.Getenv("RESTORE")
-	if envRestore != "" {
+	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
 		if v, err := strconv.ParseBool(envRestore); err != nil {
-			*restore = v
+			config.restore = v
 		}
 	}
 
-	envDSN := os.Getenv("DATABASE_DSN")
-	if envDSN != "" {
-		*dbDSN = envDSN
-	}
-
-	envHashSumKey := os.Getenv("HASH_SUM_KEY")
-	if envHashSumKey != "" {
-		*hashSumKey = envHashSumKey
-	}
-
-	envCryptoKey := os.Getenv("CRYPTO_KEY")
-	if envCryptoKey != "" {
-		*cryptoKey = envCryptoKey
-	}
-
-	return runConfig{
-		address:        *address,
-		restore:        *restore,
-		dumpFilePath:   *dumpFile,
-		dumpInterval:   *storageInternal,
-		databaseDSN:    *dbDSN,
-		hashSumKey:     *hashSumKey,
-		privateKeyPath: *cryptoKey,
-	}
+	return config
 }
 
 var buildVersion, buildDate, buildCommit string
@@ -247,7 +224,7 @@ func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.Cance
 	contentUnpackers := mdw.NewUnpackerChain(
 		mdw.CheckHashSum(hashKey),
 		mdw.DecryptContent(key),
-		mdw.DecompressContent(),
+		mdw.DecompressContent("gzip"),
 	)
 
 	middlewares := make([]func(http.Handler) http.Handler, 0, 4)

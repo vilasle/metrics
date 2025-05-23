@@ -27,3 +27,4 @@ vendor/
 cover.html
 *.metrics
 bin/
+cert/

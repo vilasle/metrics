@@ -27,48 +27,35 @@ func (c UnpackerChain) Unpack(b []byte, req *http.Request) (result []byte, err e
 	for _, unpack := range c {
 		result, err = unpack(result, req)
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 	}
 	return result, err
 }
 
-func CheckHashSum(hashKey []byte) UnpackFunc {
+func CheckHashSum(key []byte) UnpackFunc {
 	return func(b []byte, req *http.Request) ([]byte, error) {
-		if len(hashKey) == 0 {
+		if len(key) == 0 {
 			return b, nil
 		}
 
-		key := req.Context().Value(HashContextKey)
-		hashSum := req.Header.Get("HashSHA256")
+		sum := req.Header.Get("HashSHA256")
 
-		sign, ok := key.(string)
-		if !ok {
-			return b, ErrInvalidKeyType
-		}
-
-		// nothing key for getting hash sum
-		if sign == "" {
-			return b, nil
-		}
-
-		logger.Debug("check key", "key", sign)
-
-		reqHash, err := base64.URLEncoding.DecodeString(hashSum)
+		reqHash, err := base64.URLEncoding.DecodeString(sum)
 		if err != nil {
 			return b, err
 		}
 
-		logger.Debug("source hash", "hash", reqHash)
+		logger.Debug("request hash sum", "sum", reqHash)
 
-		hashSumFromContext, err := getHashSumWithKey(b, sign)
+		hashSum, err := getHashSumWithKey(b, key)
 		if err != nil {
 			return b, err
 		}
 
-		logger.Debug("generated hash", "hash", hashSumFromContext)
+		logger.Debug("generated hash", "hash", hashSum)
 
-		match := hmac.Equal(reqHash, hashSumFromContext)
+		match := hmac.Equal(reqHash, hashSum)
 
 		if match {
 			return b, nil
@@ -78,8 +65,8 @@ func CheckHashSum(hashKey []byte) UnpackFunc {
 	}
 }
 
-func getHashSumWithKey(b []byte, key string) ([]byte, error) {
-	h := hmac.New(sha256.New, []byte(key))
+func getHashSumWithKey(b []byte, key []byte) ([]byte, error) {
+	h := hmac.New(sha256.New, key)
 
 	if _, err := h.Write(b); err != nil {
 		return []byte{}, err
@@ -97,8 +84,20 @@ func DecryptContent(key *rsa.PrivateKey) UnpackFunc {
 	}
 }
 
-func DecompressContent() UnpackFunc {
+func DecompressContent(types ...string) UnpackFunc {
+	supportedEncodings := make(map[string]struct{}, len(types))
+
+	for i := range types {
+		supportedEncodings[types[i]] = struct{}{}
+	}
+
 	return func(b []byte, req *http.Request) ([]byte, error) {
+		encoding := req.Header.Get("Content-Encoding")
+
+		if _, ok := supportedEncodings[encoding]; !ok {
+			return b, nil
+		}
+
 		rd := bytes.NewReader(b)
 		grd, err := gzip.NewReader(rd)
 		if err != nil {

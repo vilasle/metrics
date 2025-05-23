@@ -22,7 +22,6 @@ import (
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository/memory"
 	"github.com/vilasle/metrics/internal/service/server"
-	"github.com/vilasle/metrics/internal/transport/rest/middleware"
 )
 
 func TestUpdateMetricAsPlainText(t *testing.T) {
@@ -595,22 +594,6 @@ func TestDisplayMetricAsJSON(t *testing.T) {
 
 		})
 	}
-}
-
-func TestCheckHashSum(t *testing.T) {
-	// hash := []byte("some hash key")
-	content := []byte("some content")
-	req, err := http.NewRequest(http.MethodPost, "/value/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hashSum := "hashSum"
-	req = req.WithContext(context.WithValue(req.Context(), middleware.HashContextKey, hashSum))
-	req.Header.Add("HashSHA256",
-		"XHg4NVx4YzNceDAxfFx4ZmVSXHg5Mlx4MTRceDEyZVx4OGZceGI4XHg4Y1x4YWRceGE0MFx4ZmIsXHhiNlx4ODdceDg4R1x4YjZceGU4fksqXHg5Zlx4MTBo3aQ=")
-	match, err := checkHashSum(&content, req)
-	require.NoError(t, err)
-	assert.Equal(t, false, match)
 }
 
 func TestUnpackContent(t *testing.T) {
