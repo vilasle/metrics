@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"bytes"
 	"compress/gzip"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -101,4 +103,26 @@ func (cw *compressedResponseWriter) Close() error {
 	}
 	_, err := cw.ResponseWriter.Write(cw.w.Bytes())
 	return err
+}
+
+func WithUnwrapBody(unpacker UnpackerChain) func(h http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			content, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			srcContent, err := unpacker.Unpack(content, r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			r.Body = io.NopCloser(bytes.NewBuffer(srcContent))
+
+			h.ServeHTTP(w, r)
+		})
+	}
 }

@@ -68,12 +68,10 @@ func (r *MemoryMetricRepository) getSaver(metricType string) saver {
 }
 
 func (r *MemoryMetricRepository) saveAll(entity ...metric.Metric) error {
-	errs := make([]error, 0)
+	errs := make([]error, len(entity))
 
 	for _, e := range entity {
-		if err := r.getSaver(e.Type()).save(e); err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, r.getSaver(e.Type()).save(e))
 	}
 	return errors.Join(errs...)
 }

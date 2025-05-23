@@ -2,6 +2,7 @@ package rest
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,8 +15,10 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vilasle/metrics/internal/compress"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository/memory"
 	"github.com/vilasle/metrics/internal/service/server"
@@ -217,51 +220,65 @@ func TestUpdateMetricAsPlainText(t *testing.T) {
 }
 
 func TestDisplayAllMetricsAsHtml(t *testing.T) {
-	storage := memory.NewMetricRepository()
+	setup := func(mms *MockMetricService, ctx context.Context, result []metric.Metric, err error) {
+		mms.EXPECT().All(ctx).Return(result, err)
+	}
 
-	for _, v := range []struct {
-		n string
-		v string
-		t string
-	}{
-		{"gauge1", "1.05", metric.TypeGauge},
-		{"gauge2", "1.15", metric.TypeGauge},
-		{"counter1", "2", metric.TypeCounter},
-		{"counter2", "3", metric.TypeGauge},
-	} {
-		m, err := metric.ParseMetric(v.n, v.v, v.t)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if err := storage.Save(context.TODO(), m); err != nil {
-			t.Fatal(err)
-		}
+	type mockArgs struct {
+		result []metric.Metric
+		err    error
 	}
 
 	testCases := []struct {
 		name       string
 		path       string
 		statusCode int
-		svc        *server.MetricService
 		contents   bool
 		exp        string
+		*mockArgs
 	}{
 		{
 			name:       "get several metrics",
 			statusCode: http.StatusOK,
 			path:       "/",
-			svc:        server.NewMetricService(storage),
 			contents:   true,
 			exp:        `<li>.+<\/li>`,
+			mockArgs: &mockArgs{
+				result: []metric.Metric{
+					metric.NewGaugeMetric("test", 1.0),
+					metric.NewCounterMetric("test2", 2.0),
+				},
+				err: nil,
+			},
 		},
 		{
 			name:       "empty storage",
 			statusCode: http.StatusOK,
 			path:       "/",
-			svc:        server.NewMetricService(memory.NewMetricRepository()),
 			contents:   false,
 			exp:        `<li>.+<\/li>`,
+			mockArgs: &mockArgs{
+				result: []metric.Metric{},
+				err:    nil,
+			},
+		},
+		{
+			name:       "wrong path",
+			statusCode: http.StatusNotFound,
+			path:       "/show/metrics",
+			contents:   false,
+			exp:        `<li>.+<\/li>`,
+		},
+		{
+			name:       "storage error",
+			statusCode: http.StatusInternalServerError,
+			path:       "/",
+			contents:   false,
+			exp:        `<li>.+<\/li>`,
+			mockArgs: &mockArgs{
+				result: []metric.Metric{},
+				err:    fmt.Errorf("error storage"),
+			},
 		},
 	}
 
@@ -277,8 +294,17 @@ func TestDisplayAllMetricsAsHtml(t *testing.T) {
 
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
 
+			//setup mock
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			svc := NewMockMetricService(ctrl)
+			if tt.mockArgs != nil {
+				setup(svc, req.Context(), tt.mockArgs.result, tt.mockArgs.err)
+			}
+
 			rr := httptest.NewRecorder()
-			handler := DisplayAllMetrics(tt.svc)
+			handler := DisplayAllMetrics(svc)
 			handler.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.statusCode, rr.Code)
@@ -518,6 +544,13 @@ func TestDisplayMetricAsJSON(t *testing.T) {
 			statusCode: http.StatusNotFound,
 			want:       nil,
 		},
+		{
+			name:       "empty body",
+			method:     http.MethodPost,
+			body:       http.NoBody,
+			statusCode: http.StatusInternalServerError,
+			want:       nil,
+		},
 	}
 
 	for _, tt := range testCases {
@@ -561,6 +594,20 @@ func TestDisplayMetricAsJSON(t *testing.T) {
 
 		})
 	}
+}
+
+func TestUnpackContent(t *testing.T) {
+
+	content := []byte("some content")
+
+	w := compress.NewCompressor(gzip.BestCompression)
+
+	w.Write(content)
+	compressed := w.Bytes()
+
+	new, err := unpackContent(compressed, true)
+	require.NoError(t, err)
+	assert.Equal(t, content, new)
 }
 
 func BenchmarkUpdateMetricAsPlainText(b *testing.B) {

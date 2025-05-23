@@ -247,3 +247,23 @@ func TestMemoryMetricRepository_Get(t *testing.T) {
 		})
 	}
 }
+
+func TestMemoryMetricRepository_saveAll(t *testing.T) {
+	testMetrics := []metric.Metric{
+		metric.NewGaugeMetric("test1", 10.01),
+		metric.NewGaugeMetric("test2", 15.14),
+		metric.NewGaugeMetric("test3", -1.0146),
+		metric.NewGaugeMetric("test4", -0),
+		metric.NewGaugeMetric("test5", 17.05),
+		metric.NewCounterMetric("test6", 10),
+		metric.NewCounterMetric("test7", 15),
+		metric.NewCounterMetric("test8", -1),
+		metric.NewCounterMetric("test9", -0),
+		metric.NewCounterMetric("test10", 17),
+	}
+
+	r := NewMetricRepository()
+
+	err := r.saveAll(testMetrics...)
+	require.NoError(t, err)
+}
