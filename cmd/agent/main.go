@@ -20,14 +20,15 @@ import (
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/service/agent/collector"
 	"github.com/vilasle/metrics/internal/service/agent/sender/rest/json"
+	"github.com/vilasle/metrics/internal/version"
 )
 
 type runConfig struct {
-	endpoint   string
 	report     time.Duration
 	poll       time.Duration
-	hashSumKey string
 	rateLimit  int
+	endpoint   string
+	hashSumKey string
 }
 
 func getConfig() runConfig {
@@ -94,7 +95,12 @@ func getConfig() runConfig {
 	}
 }
 
+var buildVersion, buildDate, buildCommit string
+
 func main() {
+	version.ShowVersion(buildVersion, buildDate, buildCommit)
+	// showVersion()
+
 	logger.Init(os.Stdout, false)
 
 	conf := getConfig()
@@ -105,20 +111,13 @@ func main() {
 	err := c.RegisterMetric(metrics...)
 
 	if err != nil {
-		logger.Error("can to register metric", "error", err)
-		os.Exit(1)
+		logger.Fatal("can to register metric", "error", err)
 	}
 
 	pollInterval := conf.poll
 	reportInterval := conf.report
 
-	c.RegisterEvent(func(c *collector.RuntimeCollector) {
-		counter := c.GetCounterValue("PollCount")
-		if err := counter.AddValue(1); err != nil {
-			logger.Error("can not add value to counter", "err", err)
-		}
-		c.SetValue(counter)
-	})
+	c.RegisterEvent(incrementPollCounter)
 
 	c.RegisterEvent(func(c *collector.RuntimeCollector) {
 		gauge := c.GetGaugeValue("RandomValue")
@@ -147,8 +146,7 @@ func main() {
 
 	sender, err := json.NewHTTPJsonSender(updateAddress, hashKey, conf.rateLimit)
 	if err != nil {
-		logger.Error("can not create sender", "err", err)
-		os.Exit(2)
+		logger.Fatal("can not create sender", "err", err)
 	}
 
 	agent := newCollectorAgent(c, sender, delay{collect: pollInterval, report: reportInterval})
@@ -161,6 +159,14 @@ func main() {
 	cancel()
 
 	time.Sleep(time.Millisecond * 1500)
+}
+
+func incrementPollCounter(c *collector.RuntimeCollector) {
+	counter := c.GetCounterValue("PollCount")
+	if err := counter.AddValue(1); err != nil {
+		logger.Error("can not add value to counter", "err", err)
+	}
+	c.SetValue(counter)
 }
 
 func getHashKeyFromFile(path string) (string, error) {
