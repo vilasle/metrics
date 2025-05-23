@@ -6,11 +6,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"time"
 
 	"github.com/vilasle/metrics/internal/logger"
@@ -18,86 +16,6 @@ import (
 	"github.com/vilasle/metrics/internal/service/agent/sender/http"
 	"github.com/vilasle/metrics/internal/version"
 )
-
-type runConfig struct {
-	report     time.Duration
-	poll       time.Duration
-	rateLimit  int
-	endpoint   string
-	hashSumKey string
-	cryptoKey  string
-}
-
-func getConfig() runConfig {
-	endpoint := flag.String("a", "localhost:8080", "endpoint to send metrics")
-	reportSec := flag.Int("r", 10, "timeout(sec) for sending report to server")
-	pollSec := flag.Int("p", 2, "timeout(sec) for polling metrics")
-	hashSumKey := flag.String("k", "", "path to key for hash sum")
-	rateLimit := flag.Int("l", 1, "rate limit for sending metrics")
-	cryptoKey := flag.String("crypto-key", "", "path to public key")
-
-	flag.Parse()
-
-	envEndpoint := os.Getenv("ADDRESS")
-	if envEndpoint != "" {
-		endpoint = &envEndpoint
-	}
-
-	envReportSec := os.Getenv("REPORT_INTERVAL")
-	if envReportSec != "" {
-		if v, err := strconv.Atoi(envReportSec); err == nil {
-			reportSec = &v
-		} else {
-			logger.Warn("can not parse env, will use default value",
-				"env", "REPORT_INTERVAL",
-				"value", envReportSec,
-				"default", *reportSec)
-		}
-	}
-
-	envPollSec := os.Getenv("POLL_INTERVAL")
-	if envPollSec != "" {
-		if v, err := strconv.Atoi(envPollSec); err == nil {
-			pollSec = &v
-		} else {
-			logger.Warn("can not parse env, will use default value",
-				"env", "POLL_INTERVAL",
-				"value", envPollSec,
-				"default", *pollSec)
-		}
-	}
-
-	envHashSumKey := os.Getenv("KEY")
-	if envHashSumKey != "" {
-		hashSumKey = &envHashSumKey
-	}
-
-	envRateLimit := os.Getenv("RATE_LIMIT")
-	if envRateLimit != "" {
-		if v, err := strconv.Atoi(envRateLimit); err == nil {
-			rateLimit = &v
-		} else {
-			logger.Warn("can not parse env, will use default value",
-				"env", "RATE_LIMIT",
-				"value", envRateLimit,
-				"default", *rateLimit)
-		}
-	}
-
-	envPublicKey := os.Getenv("CRYPTO_KEY")
-	if envPublicKey != "" {
-		cryptoKey = &envPublicKey
-	}
-
-	return runConfig{
-		endpoint:   *endpoint,
-		poll:       time.Second * time.Duration(*pollSec),
-		report:     time.Second * time.Duration(*reportSec),
-		hashSumKey: *hashSumKey,
-		rateLimit:  *rateLimit,
-		cryptoKey:  *cryptoKey,
-	}
-}
 
 var buildVersion, buildDate, buildCommit string
 
