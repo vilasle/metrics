@@ -76,6 +76,7 @@ func (a collectorAgent) report(ctx context.Context, wg *sync.WaitGroup) {
 			logger.Debug("send collected metrics")
 			t.Stop()
 			a.handleReport()
+			a.Sender.Close()
 			return
 		case <-t.C:
 			t.Stop()

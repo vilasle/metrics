@@ -26,4 +26,5 @@ type Collector interface {
 // Sender is the interface that group methods for sending of metrics to server
 type Sender interface {
 	Send(...metric.Metric) error
+	Close()
 }

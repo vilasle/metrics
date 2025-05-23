@@ -65,8 +65,9 @@ func main() {
 	cancel()
 
 	wg.Wait()
+	
+	logger.Info("agent stopped")
 
-	time.Sleep(time.Millisecond * 500)
 }
 
 func defaultGaugeMetrics() []string {

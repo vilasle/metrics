@@ -51,6 +51,14 @@ func (s *HTTPSender) Start(ctx context.Context, wg *sync.WaitGroup) {
 	go s.startWorkers(ctx, wg)
 }
 
+func (s *HTTPSender) Close() {
+	if s.rateLimit > 0 {
+		close(s.reqCh)
+		close(s.respCh)
+	}
+
+}
+
 func (s *HTTPSender) Send(objects ...metric.Metric) error {
 	if s.rateLimit > 0 {
 		return s.sendAsync(objects...)
