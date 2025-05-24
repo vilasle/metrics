@@ -80,8 +80,8 @@ func (s *HTTPServer) IsRunning() bool {
 }
 
 // Stop - tries to stop the server gracefully
-func (s *HTTPServer) Stop() error {
-	if err := s.srv.Shutdown(context.Background()); err != nil {
+func (s *HTTPServer) Stop(ctx context.Context) error {
+	if err := s.srv.Shutdown(ctx); err != nil {
 		s.running.Swap(false)
 		return err
 	}

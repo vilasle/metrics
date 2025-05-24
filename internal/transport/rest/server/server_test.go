@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -61,7 +62,7 @@ func TestHttpServer_StartStop(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			if err := s.Stop(); (err != nil) != tt.wantErr {
+			if err := s.Stop(context.Background()); (err != nil) != tt.wantErr {
 				t.Errorf("HttpServer.Stop() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			time.Sleep(1 * time.Second)

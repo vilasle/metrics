@@ -62,41 +62,35 @@ func main() {
 
 	logger.Debug("got signal")
 
-	cancelDumper()
-	time.Sleep(time.Second * 3)
-
 	if !server.IsRunning() {
 		logger.Fatal("server stopped unexpected")
 	}
 
-	shutdown(server)
+	connectionClosed := make(chan struct{})
+
+	shutdown(server, connectionClosed)
+
+	<-connectionClosed
+
+	cancelDumper()
+
+	time.Sleep(time.Second * 2)
 }
 
-func shutdown(srv *rest.HTTPServer) {
-	tickForce := time.NewTicker(time.Second * 5)
-	tickKill := time.NewTicker(time.Second * 10)
+func shutdown(srv *rest.HTTPServer, closed chan struct{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 
-	stopErr := make(chan error)
-	defer close(stopErr)
+	defer close(closed)
+	defer cancel()
 
-	go func() { stopErr <- srv.Stop() }()
+	err := srv.Stop(ctx)
 
-	for {
-		select {
-		case err := <-stopErr:
-			if err != nil {
-				logger.Error("server stopped with error", "err", err)
-				srv.ForceStop()
-			} else {
-				os.Exit(0)
-			}
-		case <-tickForce.C:
-			go srv.ForceStop()
-		case <-tickKill.C:
-			logger.Error("server did not stop during expected time")
-			os.Exit(1)
-		}
+	if err == nil {
+		return nil
 	}
+
+	logger.Error("server stopping gracefully failed", "error", err)
+	return srv.ForceStop()
 }
 
 func subscribeToStopSignals() chan os.Signal {
@@ -121,7 +115,7 @@ func getStorage(ctx context.Context, config runConfig) (repository.MetricReposit
 	if config.databaseDSN == "" {
 		return memoryStorage(ctx, config)
 	}
-	return postgresStorage(ctx, config)
+	return postgresStorage(config)
 }
 
 func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
@@ -137,7 +131,7 @@ func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepo
 	}
 }
 
-func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
+func postgresStorage(config runConfig) (repository.MetricRepository, error) {
 	db, err := sql.Open("pgx/v5", config.databaseDSN)
 	if err != nil {
 		return nil, err
