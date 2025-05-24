@@ -1,12 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	gomock "github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_collectorAgent(t *testing.T) {
@@ -35,5 +43,30 @@ func Test_collectorAgent(t *testing.T) {
 	cancel()
 
 	time.Sleep(time.Second * 2)
+
+}
+
+func Test_createSender(t *testing.T) {
+	hash := sha256.New().Sum([]byte("test"))
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	require.NoError(t, err)
+
+	defer os.Remove("hash.key")
+	defer os.Remove("cert.pub")
+
+	var publicKeyPEM bytes.Buffer
+	pem.Encode(&publicKeyPEM, &pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: x509.MarshalPKCS1PublicKey(&privateKey.PublicKey),
+	})
+	err = os.WriteFile("cert.pub", publicKeyPEM.Bytes(), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile("hash.key", hash, 0644)
+	require.NoError(t, err)
+
+	_, err = createSender("hash.key", "cert.pub", "localhost:8080", 1)
+	require.NoError(t, err)
 
 }

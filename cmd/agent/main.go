@@ -66,40 +66,20 @@ func main() {
 	cancel()
 
 	wg.Wait()
-	
+
 	logger.Info("agent stopped")
 
 }
 
 func defaultGaugeMetrics() []string {
 	return []string{
-		"Alloc",
-		"BuckHashSys",
-		"Frees",
-		"GCCPUFraction",
-		"GCSys",
-		"HeapAlloc",
-		"HeapIdle",
-		"HeapInuse",
-		"HeapObjects",
-		"HeapReleased",
-		"HeapSys",
-		"LastGC",
-		"Lookups",
-		"MCacheInuse",
-		"MCacheSys",
-		"MSpanInuse",
-		"MSpanSys",
-		"Mallocs",
-		"NextGC",
-		"NumForcedGC",
-		"NumGC",
-		"OtherSys",
-		"PauseTotalNs",
-		"StackInuse",
-		"StackSys",
-		"Sys",
-		"TotalAlloc",
+		"Alloc", "BuckHashSys", "Frees", "GCCPUFraction",
+		"GCSys", "HeapAlloc", "HeapIdle", "HeapInuse",
+		"HeapObjects", "HeapReleased", "HeapSys", "LastGC",
+		"Lookups", "MCacheInuse", "MCacheSys", "MSpanInuse",
+		"MSpanSys", "Mallocs", "NextGC", "NumForcedGC",
+		"NumGC", "OtherSys", "PauseTotalNs", "StackInuse",
+		"StackSys", "Sys", "TotalAlloc",
 	}
 }
 
