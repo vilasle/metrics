@@ -2,15 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
 	"database/sql"
-	"flag"
-	"fmt"
-	"io"
+	"encoding/pem"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/vilasle/metrics/internal/logger"
@@ -27,83 +26,6 @@ import (
 	mdw "github.com/vilasle/metrics/internal/transport/rest/middleware"
 	rest "github.com/vilasle/metrics/internal/transport/rest/server"
 )
-
-type runConfig struct {
-	address      string
-	dumpFilePath string
-	dumpInterval int64
-	restore      bool
-	databaseDSN  string
-	hashSumKey   string
-}
-
-func (c runConfig) String() string {
-	return fmt.Sprintf("address: %s; dumpFilePath: %s; dumpInterval: %d; restore: %t; databaseDSN: %s; key for hash sum: %s",
-		c.address, c.dumpFilePath, c.dumpInterval, c.restore, c.databaseDSN, c.hashSumKey)
-}
-
-func (c runConfig) DNS() (string, error) {
-	link, err := url.Parse(c.databaseDSN)
-	if err != nil {
-		return "", err
-	}
-	_ = link
-	return c.databaseDSN, nil
-}
-
-func getConfig() runConfig {
-	address := flag.String("a", "localhost:8080", "address for server")
-	storageInternal := flag.Int64("i", 300, "dumping timeout")
-	dumpFile := flag.String("f", "a.metrics", "dump file")
-	restore := flag.Bool("r", true, "need to restore metrics from dump")
-	dbDSN := flag.String("d", "", "database dns e.g. 'postgres://user:password@host:port/database?option=value'")
-	hashSumKey := flag.String("k", "", "key for hash sum")
-
-	flag.Parse()
-
-	envAddress := os.Getenv("ADDRESS")
-	if envAddress != "" {
-		*address = envAddress
-	}
-
-	envInternal := os.Getenv("STORAGE_INTERNAL")
-	if envInternal != "" {
-		if v, err := strconv.ParseInt(envInternal, 10, 64); err != nil {
-			*storageInternal = v
-		}
-	}
-
-	envDumpFile := os.Getenv("FILE_STORAGE_PATH")
-	if envDumpFile != "" {
-		*dumpFile = envDumpFile
-	}
-
-	envRestore := os.Getenv("RESTORE")
-	if envRestore != "" {
-		if v, err := strconv.ParseBool(envRestore); err != nil {
-			*restore = v
-		}
-	}
-
-	envDSN := os.Getenv("DATABASE_DSN")
-	if envDSN != "" {
-		*dbDSN = envDSN
-	}
-
-	envHashSumKey := os.Getenv("HASH_SUM_KEY")
-	if envHashSumKey != "" {
-		*hashSumKey = envHashSumKey
-	}
-
-	return runConfig{
-		address:      *address,
-		restore:      *restore,
-		dumpFilePath: *dumpFile,
-		dumpInterval: *storageInternal,
-		databaseDSN:  *dbDSN,
-		hashSumKey:   *hashSumKey,
-	}
-}
 
 var buildVersion, buildDate, buildCommit string
 
@@ -140,46 +62,40 @@ func main() {
 
 	logger.Debug("got signal")
 
-	cancelDumper()
-	time.Sleep(time.Second * 3)
-
 	if !server.IsRunning() {
 		logger.Fatal("server stopped unexpected")
 	}
 
-	shutdown(server)
+	connectionClosed := make(chan struct{})
+
+	shutdown(server, connectionClosed)
+
+	<-connectionClosed
+
+	cancelDumper()
+
+	time.Sleep(time.Second * 2)
 }
 
-func shutdown(srv *rest.HTTPServer) {
-	tickForce := time.NewTicker(time.Second * 5)
-	tickKill := time.NewTicker(time.Second * 10)
+func shutdown(srv *rest.HTTPServer, closed chan struct{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 
-	stopErr := make(chan error)
-	defer close(stopErr)
+	defer close(closed)
+	defer cancel()
 
-	go func() { stopErr <- srv.Stop() }()
+	err := srv.Stop(ctx)
 
-	for {
-		select {
-		case err := <-stopErr:
-			if err != nil {
-				logger.Error("server stopped with error", "err", err)
-				srv.ForceStop()
-			} else {
-				os.Exit(0)
-			}
-		case <-tickForce.C:
-			go srv.ForceStop()
-		case <-tickKill.C:
-			logger.Error("server did not stop during expected time")
-			os.Exit(1)
-		}
+	if err == nil {
+		return nil
 	}
+
+	logger.Error("server stopping gracefully failed", "error", err)
+	return srv.ForceStop()
 }
 
 func subscribeToStopSignals() chan os.Signal {
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt)
+	signal.Notify(stop, os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM)
 	return stop
 }
 
@@ -199,7 +115,7 @@ func getStorage(ctx context.Context, config runConfig) (repository.MetricReposit
 	if config.databaseDSN == "" {
 		return memoryStorage(ctx, config)
 	}
-	return postgresStorage(ctx, config)
+	return postgresStorage(config)
 }
 
 func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
@@ -215,7 +131,7 @@ func memoryStorage(ctx context.Context, config runConfig) (repository.MetricRepo
 	}
 }
 
-func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRepository, error) {
+func postgresStorage(config runConfig) (repository.MetricRepository, error) {
 	db, err := sql.Open("pgx/v5", config.databaseDSN)
 	if err != nil {
 		return nil, err
@@ -224,15 +140,28 @@ func postgresStorage(ctx context.Context, config runConfig) (repository.MetricRe
 }
 
 func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.CancelFunc) {
-	middlewares := make([]func(http.Handler) http.Handler, 0, 4)
-	middlewares = append(middlewares, mdw.WithLogger(), mdw.Compress("application/json", "text/html"))
-
-	hash, err := getHashKeyFromFile(config.hashSumKey)
+	hashKey, err := getHashKeyFromFile(config.hashSumKey)
 	if err != nil {
 		logger.Error("can not get hash key from file", "error", err)
-	} else {
-		middlewares = append(middlewares, mdw.CalculateHashSum(hash), mdw.HashKey(hash))
 	}
+
+	key, err := getPrivateKeyFromFile(config.privateKeyPath)
+	if err != nil {
+		logger.Error("can not get private key from file", "error", err)
+	}
+
+	contentUnpackers := mdw.NewUnpackerChain(
+		mdw.CheckHashSum(hashKey),
+		mdw.DecryptContent(key, "update", "updates"),
+		mdw.DecompressContent("gzip"),
+	)
+
+	middlewares := make([]func(http.Handler) http.Handler, 0, 4)
+	middlewares = append(middlewares,
+		mdw.WithLogger(),
+		mdw.Compress("application/json", "text/html"),
+		mdw.WithUnpackBody(contentUnpackers),
+	)
 
 	server := rest.NewHTTPServer(config.address, middlewares...)
 
@@ -252,16 +181,20 @@ func registerHandlers(srv *rest.HTTPServer, svc service.MetricService) {
 	srv.Register("/update/{type}/{name}/{value}", rest.UpdateMetric(svc), http.MethodPost)
 }
 
-func getHashKeyFromFile(path string) (string, error) {
-	fd, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer fd.Close()
+func getHashKeyFromFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
 
-	if content, err := io.ReadAll(fd); err == nil {
-		return string(content), err
-	} else {
-		return "", err
+func getPrivateKeyFromFile(path string) (*rsa.PrivateKey, error) {
+	if path == "" {
+		return nil, nil
 	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	privateBlock, _ := pem.Decode(content)
+	return x509.ParsePKCS1PrivateKey(privateBlock.Bytes)
 }

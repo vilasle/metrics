@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vilasle/metrics/internal/metric"
+	"github.com/vilasle/metrics/internal/service"
 )
 
 func TestRuntimeCollector_RegisterMetric(t *testing.T) {
@@ -90,7 +91,7 @@ func TestRuntimeCollector_AllMetrics(t *testing.T) {
 			name:      "must have 2 metrics",
 			metrics:   []string{"Alloc", "Frees"},
 			wantCount: 2,
-			eventCollector: func(c *RuntimeCollector) {
+			eventCollector: func(c service.Collector) {
 				counter := c.GetCounterValue("test")
 				counter.AddValue(1)
 				c.SetValue(counter)

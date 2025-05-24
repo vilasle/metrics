@@ -23,6 +23,13 @@ type delay struct {
 	collect time.Duration
 }
 
+func newDelay(report, collect time.Duration) delay {
+	return delay{
+		report:  report,
+		collect: collect,
+	}
+}
+
 func newCollectorAgent(collector agent.Collector, sender agent.Sender, delaySetting delay) collectorAgent {
 	return collectorAgent{
 		Collector: collector,
@@ -38,26 +45,15 @@ func newCollectorAgent(collector agent.Collector, sender agent.Sender, delaySett
 	}
 }
 
-func (a collectorAgent) run(ctx context.Context) {
-	newCtx, cancel := context.WithCancel(ctx)
-
-	go a.collectWithContext(newCtx)
-	go a.reportWithContext(newCtx)
-
-	<-ctx.Done()
-	logger.Debug("got cancel from main")
-	cancel()
+func (a collectorAgent) run(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(2)
+	go a.collect(ctx, wg)
+	go a.report(ctx, wg)
 }
 
-func (a collectorAgent) collect() {
-	a.mx.Lock()
-	defer a.mx.Unlock()
-
-	a.Collect()
-}
-
-func (a collectorAgent) collectWithContext(ctx context.Context) {
+func (a collectorAgent) collect(ctx context.Context, wg *sync.WaitGroup) {
 	t := time.NewTicker(a.collectDelay)
+	defer wg.Done()
 	defer t.Stop()
 	for {
 		select {
@@ -70,27 +66,31 @@ func (a collectorAgent) collectWithContext(ctx context.Context) {
 	}
 }
 
-func (a collectorAgent) report() {
-	if err := a.sendReport(); err != nil {
-		logger.Error("failed to report metrics", "err", err)
-	} else {
-		a.resetPoolCounter()
-	}
-}
-
-func (a collectorAgent) reportWithContext(ctx context.Context) {
+func (a collectorAgent) report(ctx context.Context, wg *sync.WaitGroup) {
 	t := time.NewTicker(a.reportDelay)
-	defer t.Stop()
+	defer wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Debug("reporter got cancel signal")
+			logger.Debug("send collected metrics")
+			t.Stop()
+			a.handleReport()
+			a.Sender.Close()
 			return
 		case <-t.C:
 			t.Stop()
-			a.report()
+			a.handleReport()
 			t.Reset(a.reportDelay)
 		}
+	}
+}
+
+func (a collectorAgent) handleReport() {
+	if err := a.sendReport(); err == nil {
+		a.ResetCounter("PollCount")
+	} else {
+		logger.Error("failed to report metrics", "err", err)
 	}
 }
 
@@ -98,15 +98,11 @@ func (a collectorAgent) sendReport() (err error) {
 	a.mx.Lock()
 	defer a.mx.Unlock()
 	for _, d := range a.repeat {
-		if err = a.SendWithLimit(a.AllMetrics()...); err != nil {
+		if err = a.Send(a.AllMetrics()...); err != nil {
 			time.Sleep(d)
 		} else {
 			break
 		}
 	}
 	return err
-}
-
-func (a collectorAgent) resetPoolCounter() {
-	a.ResetCounter("PollCount")
 }

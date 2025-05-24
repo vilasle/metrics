@@ -21,11 +21,13 @@ type Collector interface {
 	Collect()
 	AllMetrics() []metric.Metric
 	ResetCounter(string)
+	SetValue(metric.Metric)
+	GetCounterValue(string) metric.Metric
+	GetGaugeValue(string) metric.Metric
 }
 
 // Sender is the interface that group methods for sending of metrics to server
 type Sender interface {
-	Send(metric.Metric) error
-	SendBatch(...metric.Metric) error
-	SendWithLimit(...metric.Metric) error
+	Send(...metric.Metric) error
+	Close()
 }
