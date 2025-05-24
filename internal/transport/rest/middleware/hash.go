@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -13,23 +12,6 @@ import (
 type key string
 
 const HashContextKey key = "hashKey"
-
-func HashKey(hashKey string) func(h http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			if len(hashKey) > 0 {
-				ctx = context.WithValue(ctx, HashContextKey, hashKey)
-				next.ServeHTTP(w, r.WithContext(ctx))
-				return
-			}
-			next.ServeHTTP(w, r)
-		}
-		return http.HandlerFunc(fn)
-
-	}
-
-}
 
 type hashCalculatedResponse struct {
 	headerIsWrote bool

@@ -101,8 +101,8 @@ func DecryptContent(key *rsa.PrivateKey, path ...string) UnpackFunc {
 			return b, nil
 		}
 
-		path := req.RequestURI
-		
+		path := req.URL.Path
+
 		if !strings.HasPrefix(path, "/") {
 			path = "/" + path
 		}

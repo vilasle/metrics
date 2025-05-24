@@ -23,7 +23,7 @@ func WithLogger() func(h http.Handler) http.Handler {
 			defer func() {
 				logger.Infow(
 					"handle request",
-					zap.String("uri", r.RequestURI),
+					zap.String("uri", r.URL.String()),
 					zap.String("method", r.Method),
 					zap.Int("code", ww.Status()),
 					zap.Duration("delay", time.Since(start)),
@@ -105,7 +105,7 @@ func (cw *compressedResponseWriter) Close() error {
 	return err
 }
 
-func WithUnwrapBody(unpacker UnpackerChain) func(h http.Handler) http.Handler {
+func WithUnpackBody(unpacker UnpackerChain) func(h http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			content, err := io.ReadAll(r.Body)

@@ -160,7 +160,7 @@ func createAndPreparingServer(config runConfig) (*rest.HTTPServer, context.Cance
 	middlewares = append(middlewares,
 		mdw.WithLogger(),
 		mdw.Compress("application/json", "text/html"),
-		mdw.WithUnwrapBody(contentUnpackers),
+		mdw.WithUnpackBody(contentUnpackers),
 	)
 
 	server := rest.NewHTTPServer(config.address, middlewares...)
