@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/vilasle/metrics/internal/logger"
+	"github.com/vilasle/metrics/internal/service"
 	"github.com/vilasle/metrics/internal/service/agent/collector"
 	"github.com/vilasle/metrics/internal/service/agent/sender/http"
 	"github.com/vilasle/metrics/internal/version"
@@ -102,7 +103,7 @@ func defaultGaugeMetrics() []string {
 	}
 }
 
-func registerEvents(c *collector.RuntimeCollector, events ...func(*collector.RuntimeCollector)) {
+func registerEvents(c *collector.RuntimeCollector, events ...func(service.Collector)) {
 	for _, event := range events {
 		c.RegisterEvent(event)
 	}

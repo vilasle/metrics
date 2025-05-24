@@ -11,10 +11,10 @@ import (
 	"github.com/shirou/gopsutil/mem"
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
-	"github.com/vilasle/metrics/internal/service/agent/collector"
+	"github.com/vilasle/metrics/internal/service"
 )
 
-func collectExtraMetrics(c *collector.RuntimeCollector) {
+func collectExtraMetrics(c service.Collector) {
 	wg := &sync.WaitGroup{}
 
 	metricCh := make(chan metric.Metric, 2+runtime.NumCPU())
@@ -61,14 +61,14 @@ func collectExtraCPUMetrics(wg *sync.WaitGroup, metricCh chan<- metric.Metric) {
 	}
 }
 
-func collectRandomValue(c *collector.RuntimeCollector) {
+func collectRandomValue(c service.Collector) {
 	gauge := c.GetGaugeValue("RandomValue")
 	gauge.SetValue(rand.Float64())
 
 	c.SetValue(gauge)
 }
 
-func incrementPollCounter(c *collector.RuntimeCollector) {
+func incrementPollCounter(c service.Collector) {
 	counter := c.GetCounterValue("PollCount")
 	if err := counter.AddValue(1); err != nil {
 		logger.Error("can not add value to counter", "err", err)

@@ -8,9 +8,10 @@ import (
 
 	"github.com/vilasle/metrics/internal/logger"
 	"github.com/vilasle/metrics/internal/metric"
+	"github.com/vilasle/metrics/internal/service"
 )
 
-type eventHandler func(c *RuntimeCollector)
+type eventHandler func(c service.Collector)
 
 // RuntimeCollector provided way for collection runtime metrics 
 // with options registration extra events where can add extra metrics or make postprocess collected metrics  

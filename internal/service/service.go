@@ -21,6 +21,9 @@ type Collector interface {
 	Collect()
 	AllMetrics() []metric.Metric
 	ResetCounter(string)
+	SetValue(metric.Metric)
+	GetCounterValue(string) metric.Metric
+	GetGaugeValue(string) metric.Metric
 }
 
 // Sender is the interface that group methods for sending of metrics to server
