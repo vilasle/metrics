@@ -1,8 +1,6 @@
 package rest
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -65,25 +63,6 @@ func handleUpdateAsTextJSON(svc service.MetricService, r *http.Request) Response
 
 	updContent, err := json.Marshal(m)
 	return newJSONResponse(updContent, err)
-}
-
-func unpackContent(content []byte, isCompressed bool) ([]byte, error) {
-	if !isCompressed {
-		return content, nil
-	}
-
-	rd := bytes.NewReader(content)
-	grd, err := gzip.NewReader(rd)
-	if err != nil {
-		return nil, err
-	}
-
-	defer grd.Close()
-	if c, err := io.ReadAll(grd); err == io.EOF {
-		return c, nil
-	} else {
-		return c, err
-	}
 }
 
 func updateMetrics(svc service.MetricService, r *http.Request) Response {

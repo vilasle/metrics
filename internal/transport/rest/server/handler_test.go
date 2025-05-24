@@ -2,7 +2,6 @@ package rest
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vilasle/metrics/internal/compress"
 	"github.com/vilasle/metrics/internal/metric"
 	"github.com/vilasle/metrics/internal/repository/memory"
 	"github.com/vilasle/metrics/internal/service/server"
@@ -594,20 +592,6 @@ func TestDisplayMetricAsJSON(t *testing.T) {
 
 		})
 	}
-}
-
-func TestUnpackContent(t *testing.T) {
-
-	content := []byte("some content")
-
-	w := compress.NewCompressor(gzip.BestCompression)
-
-	w.Write(content)
-	compressed := w.Bytes()
-
-	new, err := unpackContent(compressed, true)
-	require.NoError(t, err)
-	assert.Equal(t, content, new)
 }
 
 func BenchmarkUpdateMetricAsPlainText(b *testing.B) {

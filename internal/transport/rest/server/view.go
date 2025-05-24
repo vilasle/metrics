@@ -97,14 +97,9 @@ func handleDisplayMetricAsTextJSON(svc service.MetricService, r *http.Request) R
 		return newTextResponse(emptyBody(), ErrReadingRequestBody)
 	}
 
-	decompressedContent, err := unpackContent(content, r.Header.Get("Content-Encoding") == "gzip")
-	if err != nil {
-		return newTextResponse(emptyBody(), ErrReadingRequestBody)
-	}
+	logger.Debugw("request body", "url", r.URL.String(), "body", string(content))
 
-	logger.Debugw("request body", "url", r.URL.String(), "body", string(decompressedContent))
-
-	m, err := metric.FromJSON(decompressedContent)
+	m, err := metric.FromJSON(content)
 	if err != nil && !errors.Is(err, metric.ErrEmptyValue) {
 		return newTextResponse(emptyBody(), err)
 	}
